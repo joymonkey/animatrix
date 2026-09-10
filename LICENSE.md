@@ -13,4 +13,4 @@ Under the following terms:
 To view a copy of this license, visit:
 https://creativecommons.org/licenses/by-nc/4.0/
 
-Copyright (c) 2026 [Paul Murphy / joymonkey]
+Copyright (c) 2026 Paul Murphy / joymonkey
