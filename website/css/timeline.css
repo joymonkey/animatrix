@@ -1,0 +1,231 @@
+/*
+ * timeline.css
+ * Multi-frame sequencer timeline, thumbnail filmstrip, and playback controls.
+ */
+
+.timeline-dock {
+  height: 156px;
+  background: rgba(14, 14, 20, 0.95);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  z-index: 80;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Playback Control Bar */
+.timeline-control-bar {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 10, 14, 0.5);
+}
+
+.playback-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.playback-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.playback-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-highlight);
+}
+
+.playback-btn.play-btn {
+  width: auto;
+  padding: 0 14px;
+  gap: 6px;
+  background: linear-gradient(135deg, #ff2200, #b31000);
+  border-color: #ff5533;
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+  box-shadow: 0 0 10px rgba(255, 34, 0, 0.3);
+}
+
+.playback-btn.play-btn.is-playing {
+  background: linear-gradient(135deg, #ffaa00, #d47700);
+  border-color: #ffcc44;
+  box-shadow: 0 0 12px rgba(255, 170, 0, 0.4);
+}
+
+/* Timeline Filmstrip */
+.timeline-filmstrip-wrapper {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+}
+
+.timeline-filmstrip-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.timeline-filmstrip-wrapper::-webkit-scrollbar-track {
+  background: var(--bg-deep);
+}
+
+.timeline-filmstrip-wrapper::-webkit-scrollbar-thumb {
+  background: var(--border-highlight);
+  border-radius: 3px;
+}
+
+.timeline-filmstrip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: max-content;
+}
+
+/* Frame Card */
+.frame-card {
+  width: 140px;
+  height: 86px;
+  background: #11111a;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  position: relative;
+}
+
+.frame-card:hover {
+  border-color: var(--border-highlight);
+  background: #161622;
+  transform: translateY(-2px);
+}
+
+.frame-card.active {
+  border-color: var(--led-red);
+  box-shadow: 0 0 12px rgba(255, 26, 0, 0.4);
+  background: #181520;
+}
+
+.frame-card.dragging {
+  opacity: 0.4;
+}
+
+.frame-card.drag-over {
+  border-left: 3px solid var(--accent-cyan);
+}
+
+/* Frame Card Header */
+.frame-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.frame-index-badge {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.frame-card.active .frame-index-badge {
+  color: #ff5533;
+}
+
+.frame-duration-badge {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.frame-duration-badge:hover {
+  background: rgba(0, 240, 255, 0.15);
+  color: var(--accent-cyan);
+}
+
+/* Thumbnail Canvas */
+.frame-thumbnail-canvas {
+  width: 100%;
+  height: 28px;
+  border-radius: 3px;
+  border: 1px solid #1f1f2e;
+  image-rendering: pixelated;
+}
+
+/* Frame Card Footer Actions */
+.frame-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.frame-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.frame-action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.frame-action-btn.del-btn:hover {
+  color: #ff4444;
+}
+
+/* Add Frame Card Button */
+.timeline-add-frame-btn {
+  width: 90px;
+  height: 86px;
+  background: rgba(16, 16, 24, 0.5);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: var(--font-sans);
+  transition: all 0.18s ease;
+}
+
+.timeline-add-frame-btn:hover {
+  border-color: var(--led-red);
+  color: #fff;
+  background: rgba(255, 26, 0, 0.08);
+}

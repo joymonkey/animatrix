@@ -1,0 +1,39 @@
+# ========================
+# KiCad Files & Backups
+# ========================
+*-backups/
+*.bak
+*.kicad_pcb-bak
+*.kicad_sch-bak
+*.lck
+*.tmp
+_autosave-*
+*.net
+*report*.json
+*report*.txt
+temp-*
+scripts/
+production/
+datasheets/
+renders/
+*fabrication*
+
+# ========================
+# PlatformIO & Embedded
+# ========================
+.pio/
+.pioenvs/
+.piolibdeps/
+.clangd/
+.gcc-flags.json
+
+# ========================
+# Operating System & IDE
+# ========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.htaccess
+*Copy.*
+AGENTS.md

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daft Punk LED Matrix Control</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>DP HELMET<span class="highlight">OS</span></h1>
+            <p class="subtitle">Matrix Control Terminal</p>
+        </header>
+
+        <section class="control-panel">
+            <h2>Quick Triggers</h2>
+            <div class="button-grid">
+                <button class="btn btn-primary" onclick="triggerAction('all_on')">ALL ON</button>
+                <button class="btn btn-danger" onclick="triggerAction('all_off')">ALL OFF</button>
+                <button class="btn btn-accent" onclick="triggerAction('test')">SWIPE TEST</button>
+            </div>
+        </section>
+
+        <section class="upload-panel">
+            <h2>Custom Animation</h2>
+            <p>Upload a JSON animation script.</p>
+            <div class="file-upload">
+                <input type="file" id="scriptFile" accept=".json">
+                <button class="btn btn-outline" onclick="uploadScript()">Upload Script</button>
+            </div>
+            <div id="statusMessage" class="status-message"></div>
+        </section>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
