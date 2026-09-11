@@ -117,6 +117,133 @@ document.addEventListener('DOMContentLoaded', () => {
   PresetLibrary.loadPreset('cylon', matrixState);
   updateStatusLabels();
 
+  // 4b. Welcome Onboarding Modal ("Welcome to the world of tomorrow!")
+  const welcomeModal = document.getElementById('welcomeModal');
+  const welcomeBlankBtn = document.getElementById('welcomeBlankBtn');
+  const welcomeRandomBtn = document.getElementById('welcomeRandomBtn');
+  const welcomeCloseBtn = document.getElementById('welcomeCloseBtn');
+
+  function closeWelcomeModal() {
+    if (welcomeModal) welcomeModal.classList.remove('active');
+  }
+
+  function startBlankAnimation() {
+    matrixState.frames = [{
+      id: matrixState._generateId(),
+      durationMs: matrixState.defaultDurationMs,
+      data: matrixState.createBuffer()
+    }];
+    matrixState.activeFrameIndex = 0;
+    matrixState.name = 'blank_sequence';
+    matrixState.undoStack = [];
+    matrixState.redoStack = [];
+    matrixState.notify('frames_reloaded');
+    timelineView.render();
+    ledCanvas.render();
+    updateStatusLabels();
+    closeWelcomeModal();
+  }
+
+  function startRandomAnimation() {
+    const randomChoices = [
+      // 1. Robotic Eyes (Random expression & style)
+      () => {
+        const expressions = ['blink', 'wink_left', 'wink_right', 'squint', 'scan', 'shock'];
+        const styles = ['block', 'slit', 'brackets'];
+        const exp = expressions[Math.floor(Math.random() * expressions.length)];
+        const sty = styles[Math.floor(Math.random() * styles.length)];
+        const eyeW = Math.min(10, Math.max(4, Math.floor(matrixState.width * 0.25)));
+        PresetLibrary.loadPreset('robot_eyes', matrixState, {
+          expression: exp,
+          style: sty,
+          eyeWidth: eyeW,
+          holdDurationMs: 900 + Math.floor(Math.random() * 800)
+        });
+        matrixState.name = `robot_${exp}`;
+      },
+      // 2. Audio Spectrum Equalizer
+      () => {
+        const styles = ['solid', 'peak_dots', 'waveform'];
+        const bandsList = [8, 16, 20];
+        const sty = styles[Math.floor(Math.random() * styles.length)];
+        const bands = bandsList[Math.floor(Math.random() * bandsList.length)];
+        PresetLibrary.loadPreset('equalizer', matrixState, {
+          style: sty,
+          bands: bands,
+          numFrames: 40
+        });
+        matrixState.name = `eq_${sty}_${bands}band`;
+      },
+      // 3. Pulse / Heartbeat
+      () => {
+        const patterns = ['breathe', 'heartbeat', 'strobe', 'curtain'];
+        const pat = patterns[Math.floor(Math.random() * patterns.length)];
+        PresetLibrary.loadPreset('pulse', matrixState, {
+          pattern: pat,
+          numPulses: 3,
+          framesPerCycle: 20
+        });
+        matrixState.name = `visor_pulse_${pat}`;
+      },
+      // 4. Daft Punk / Sci-Fi Track Marquee
+      () => {
+        const tracks = [
+          'WORLD OF TOMORROW',
+          'HUMAN AFTER ALL',
+          'AROUND THE WORLD',
+          'HARDER BETTER FASTER',
+          'ROBOT ROCK',
+          'TECHNO LOGIC',
+          'DAFT PUNK VISOR',
+          'DISCOVERY 2001'
+        ];
+        const text = tracks[Math.floor(Math.random() * tracks.length)];
+        generators.generateMarquee(text, {
+          fps: matrixState.globalFps,
+          scrollDirection: 'left',
+          tracking: 1,
+          leadInBlankCols: 6,
+          leadOutBlankCols: 10,
+          brightness: 255,
+          insertion: { mode: 'replace' }
+        });
+        matrixState.name = text.toLowerCase().replace(/\s+/g, '_');
+      },
+      // 5. High-Speed Bouncing Chevron Cylon
+      () => {
+        PresetLibrary.loadPreset('cylon', matrixState, {
+          shape: 'fading_chevron',
+          roundTrip: true,
+          startDirection: Math.random() > 0.5 ? 'left_to_right' : 'right_to_left',
+          repetitions: 2,
+          framesPerPass: 24,
+          beamWidth: 3,
+          tailLength: 8,
+          headBrightness: 255
+        });
+        matrixState.name = 'hyper_chevron_bounce';
+      }
+    ];
+
+    const pick = randomChoices[Math.floor(Math.random() * randomChoices.length)];
+    pick();
+    timelineView.render();
+    ledCanvas.render();
+    updateStatusLabels();
+    closeWelcomeModal();
+  }
+
+  if (welcomeBlankBtn) welcomeBlankBtn.addEventListener('click', startBlankAnimation);
+  if (welcomeRandomBtn) welcomeRandomBtn.addEventListener('click', startRandomAnimation);
+  if (welcomeCloseBtn) welcomeCloseBtn.addEventListener('click', closeWelcomeModal);
+  if (welcomeModal) {
+    welcomeModal.addEventListener('click', (e) => {
+      if (e.target === welcomeModal) closeWelcomeModal();
+    });
+    // Greet user on arrival
+    welcomeModal.classList.add('active');
+  }
+
   // 5. Tool Selection
   function selectTool(toolName) {
     drawEngine.setTool(toolName);
