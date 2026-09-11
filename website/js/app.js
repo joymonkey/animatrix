@@ -7,7 +7,7 @@
 import { MatrixState } from './core/MatrixState.js?v=2.7';
 import { LedCanvas } from './core/LedCanvas.js?v=2.7';
 import { AnimationPlayer } from './core/AnimationPlayer.js?v=2.7';
-import { DrawEngine } from './tools/DrawEngine.js?v=2.7';
+import { DrawEngine } from './tools/DrawEngine.js?v=2.9';
 import { Generators } from './tools/Generators.js?v=2.7';
 import { JsonHandler } from './io/JsonHandler.js?v=2.7';
 import { CppExporter } from './io/CppExporter.js?v=2.7';
@@ -49,9 +49,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 3. UI Elements
   const toolButtons = document.querySelectorAll('[data-tool]');
-  const brightnessSlider = document.getElementById('brightnessSlider');
-  const brightnessVal = document.getElementById('brightnessVal');
-  const brightnessPresets = document.querySelectorAll('[data-brightness]');
+  const swatchFg = document.getElementById('swatchFg');
+  const swatchBg = document.getElementById('swatchBg');
+  const swatchSwapBtn = document.getElementById('swatchSwapBtn');
+  const swatchResetBtn = document.getElementById('swatchResetBtn');
+
+  // PWM Brightness Modal Elements
+  const pwmModal = document.getElementById('pwmModal');
+  const pwmModalTitle = document.getElementById('pwmModalTitle');
+  const pwmTabFg = document.getElementById('pwmTabFg');
+  const pwmTabBg = document.getElementById('pwmTabBg');
+  const pwmTabFgSwatch = document.getElementById('pwmTabFgSwatch');
+  const pwmTabBgSwatch = document.getElementById('pwmTabBgSwatch');
+  const pwmLedBead = document.getElementById('pwmLedBead');
+  const pwmTargetName = document.getElementById('pwmTargetName');
+  const pwmPercentBadge = document.getElementById('pwmPercentBadge');
+  const pwmValueBadge = document.getElementById('pwmValueBadge');
+  const pwmNumberInput = document.getElementById('pwmNumberInput');
+  const pwmSlider = document.getElementById('pwmSlider');
+  const pwmPresetTiles = document.querySelectorAll('.pwm-preset-tile');
+  const pwmModalSwapBtn = document.getElementById('pwmModalSwapBtn');
+  const pwmModalResetBtn = document.getElementById('pwmModalResetBtn');
+  const pwmModalDoneBtn = document.getElementById('pwmModalDoneBtn');
+
   const playPauseBtn = document.getElementById('playPauseBtn');
   const stopBtn = document.getElementById('stopBtn');
   const prevFrameBtn = document.getElementById('prevFrameBtn');
@@ -109,26 +129,194 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => selectTool(btn.dataset.tool));
   });
 
-  // Brightness Control
-  function updateBrightness(val) {
-    const num = Math.max(0, Math.min(255, parseInt(val, 10)));
-    drawEngine.setBrightness(num);
-    brightnessSlider.value = num;
-    brightnessVal.textContent = num;
-    brightnessPresets.forEach((p) => {
-      p.classList.toggle('active', parseInt(p.dataset.brightness, 10) === num);
+  // 6. Foreground / Background PWM Management
+  let currentPwmTarget = 'fg'; // 'fg' | 'bg'
+
+  function getActiveTheme() {
+    const colorName = matrixState.color || ledCanvas.ledColor || 'red';
+    return THEME_PALETTES[colorName] || THEME_PALETTES.red;
+  }
+
+  function updateSwatchDisplay() {
+    const theme = getActiveTheme();
+    const fg = drawEngine.fgBrightness;
+    const bg = drawEngine.bgBrightness;
+
+    if (swatchFg) {
+      swatchFg.title = `Foreground PWM: ${fg} (Click to edit)`;
+      const fgRatio = fg / 255;
+      if (fg === 0) {
+        swatchFg.style.backgroundColor = '#0d0d14';
+        swatchFg.style.boxShadow = 'none';
+        swatchFg.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+      } else {
+        swatchFg.style.backgroundColor = theme.led;
+        swatchFg.style.opacity = Math.max(0.4, 0.2 + fgRatio * 0.8);
+        swatchFg.style.boxShadow = `0 0 ${Math.round(fgRatio * 12)}px ${theme.glow}`;
+        swatchFg.style.borderColor = fgRatio > 0.5 ? '#ffffff' : theme.badge;
+      }
+    }
+
+    if (swatchBg) {
+      swatchBg.title = `Background PWM: ${bg} (Click to edit)`;
+      const bgRatio = bg / 255;
+      if (bg === 0) {
+        swatchBg.style.backgroundColor = '#0d0d14';
+        swatchBg.style.boxShadow = 'none';
+        swatchBg.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+      } else {
+        swatchBg.style.backgroundColor = theme.led;
+        swatchBg.style.opacity = Math.max(0.4, 0.2 + bgRatio * 0.8);
+        swatchBg.style.boxShadow = `0 0 ${Math.round(bgRatio * 10)}px ${theme.glow}`;
+        swatchBg.style.borderColor = bgRatio > 0.5 ? '#ffffff' : theme.badge;
+      }
+    }
+
+    if (pwmTabFgSwatch) {
+      pwmTabFgSwatch.style.backgroundColor = fg > 0 ? theme.led : '#0d0d14';
+      pwmTabFgSwatch.style.opacity = Math.max(0.2, fg / 255);
+    }
+    if (pwmTabBgSwatch) {
+      pwmTabBgSwatch.style.backgroundColor = bg > 0 ? theme.led : '#0d0d14';
+      pwmTabBgSwatch.style.opacity = Math.max(0.2, bg / 255);
+    }
+
+    // Synchronize fill colors in preset tiles with active LED theme
+    document.querySelectorAll('.pwm-square-fill').forEach((fill) => {
+      fill.style.backgroundColor = theme.led;
     });
   }
 
-  brightnessSlider.addEventListener('input', (e) => updateBrightness(e.target.value));
+  function syncModalValues() {
+    const val = currentPwmTarget === 'fg' ? drawEngine.fgBrightness : drawEngine.bgBrightness;
+    const theme = getActiveTheme();
+    const ratio = val / 255;
+    const percent = Math.round(ratio * 100);
 
-  brightnessPresets.forEach((btn) => {
-    btn.addEventListener('click', () => updateBrightness(btn.dataset.brightness));
+    if (pwmModalTitle) {
+      pwmModalTitle.textContent = currentPwmTarget === 'fg' ? 'FOREGROUND PWM BRIGHTNESS' : 'BACKGROUND PWM BRIGHTNESS';
+    }
+    if (pwmTargetName) {
+      pwmTargetName.textContent = currentPwmTarget === 'fg' ? 'Foreground PWM Intensity' : 'Background PWM Intensity';
+    }
+    if (pwmPercentBadge) pwmPercentBadge.textContent = `${percent}%`;
+    if (pwmValueBadge) pwmValueBadge.textContent = `${val} / 255 PWM`;
+
+    if (pwmTabFg) pwmTabFg.classList.toggle('active', currentPwmTarget === 'fg');
+    if (pwmTabBg) pwmTabBg.classList.toggle('active', currentPwmTarget === 'bg');
+
+    if (pwmSlider) pwmSlider.value = val;
+    if (pwmNumberInput) pwmNumberInput.value = val;
+
+    // LED Bead Preview
+    if (pwmLedBead) {
+      const core = pwmLedBead.querySelector('.pwm-bead-core');
+      if (core) {
+        core.style.backgroundColor = theme.led;
+        core.style.opacity = Math.max(0.04, ratio);
+        core.style.transform = `scale(${0.5 + ratio * 0.5})`;
+        core.style.boxShadow = val > 0 ? `0 0 ${Math.round(ratio * 20)}px ${theme.glow}` : 'none';
+      }
+      pwmLedBead.style.boxShadow = val > 0
+        ? `0 0 ${Math.round(ratio * 25)}px ${theme.glow}, inset 0 0 10px ${theme.dim}`
+        : 'inset 0 2px 4px rgba(0, 0, 0, 0.8)';
+    }
+
+    // Active state on matching preset tile
+    pwmPresetTiles.forEach((tile) => {
+      tile.classList.toggle('active', parseInt(tile.dataset.pwm, 10) === val);
+    });
+  }
+
+  function setPwmForCurrentTarget(rawVal) {
+    const num = Math.max(0, Math.min(255, Math.round(parseInt(rawVal, 10) || 0)));
+    if (currentPwmTarget === 'fg') {
+      drawEngine.setFgBrightness(num);
+    } else {
+      drawEngine.setBgBrightness(num);
+    }
+    updateSwatchDisplay();
+    syncModalValues();
+  }
+
+  function openPwmModal(target = 'fg') {
+    currentPwmTarget = target;
+    if (pwmModal) {
+      pwmModal.classList.add('active');
+      syncModalValues();
+    }
+  }
+
+  function closePwmModal() {
+    if (pwmModal) pwmModal.classList.remove('active');
+  }
+
+  // Bind Swatch Widget Actions
+  if (swatchFg) swatchFg.addEventListener('click', () => openPwmModal('fg'));
+  if (swatchBg) swatchBg.addEventListener('click', () => openPwmModal('bg'));
+
+  if (swatchSwapBtn) {
+    swatchSwapBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      drawEngine.swapFgBg();
+      updateSwatchDisplay();
+      if (pwmModal && pwmModal.classList.contains('active')) syncModalValues();
+    });
+  }
+
+  if (swatchResetBtn) {
+    swatchResetBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      drawEngine.resetFgBg();
+      updateSwatchDisplay();
+      if (pwmModal && pwmModal.classList.contains('active')) syncModalValues();
+    });
+  }
+
+  // Bind PWM Modal Tabs and Inputs
+  if (pwmTabFg) pwmTabFg.addEventListener('click', () => { currentPwmTarget = 'fg'; syncModalValues(); });
+  if (pwmTabBg) pwmTabBg.addEventListener('click', () => { currentPwmTarget = 'bg'; syncModalValues(); });
+
+  if (pwmSlider) pwmSlider.addEventListener('input', (e) => setPwmForCurrentTarget(e.target.value));
+  if (pwmNumberInput) pwmNumberInput.addEventListener('input', (e) => setPwmForCurrentTarget(e.target.value));
+
+  pwmPresetTiles.forEach((tile) => {
+    tile.addEventListener('click', () => {
+      setPwmForCurrentTarget(tile.dataset.pwm);
+    });
   });
 
+  if (pwmModalSwapBtn) {
+    pwmModalSwapBtn.addEventListener('click', () => {
+      drawEngine.swapFgBg();
+      updateSwatchDisplay();
+      syncModalValues();
+    });
+  }
+
+  if (pwmModalResetBtn) {
+    pwmModalResetBtn.addEventListener('click', () => {
+      drawEngine.resetFgBg();
+      updateSwatchDisplay();
+      syncModalValues();
+    });
+  }
+
+  if (pwmModalDoneBtn) pwmModalDoneBtn.addEventListener('click', closePwmModal);
+  if (pwmModal) {
+    const modalCloseBtn = pwmModal.querySelector('.modal-close-btn');
+    if (modalCloseBtn) modalCloseBtn.addEventListener('click', closePwmModal);
+    pwmModal.addEventListener('click', (e) => {
+      if (e.target === pwmModal) closePwmModal();
+    });
+  }
+
   drawEngine.onEyedropperPick = (pickedBrightness) => {
-    updateBrightness(pickedBrightness);
+    setPwmForCurrentTarget(pickedBrightness);
   };
+
+  // Initial Swatch Visuals
+  updateSwatchDisplay();
 
   // LED Size Controls (XS, S, M, L, XL)
   const ledSizeVal = document.getElementById('ledSizeVal');
@@ -203,6 +391,8 @@ document.addEventListener('DOMContentLoaded', () => {
       applyColorTheme(data.color);
       ledCanvas.setLedColor(data.color);
       timelineView.updateAllThumbnails();
+      updateSwatchDisplay();
+      if (pwmModal && pwmModal.classList.contains('active')) syncModalValues();
     }
   });
 
@@ -242,6 +432,8 @@ document.addEventListener('DOMContentLoaded', () => {
       timelineView.updateAllThumbnails();
       applyColorTheme(col);
       updateStatusLabels();
+      updateSwatchDisplay();
+      if (pwmModal && pwmModal.classList.contains('active')) syncModalValues();
     });
   }
 
@@ -588,6 +780,8 @@ document.addEventListener('DOMContentLoaded', () => {
       ledCanvas.setLedColor(color);
       timelineView.updateAllThumbnails();
       applyColorTheme(color);
+      updateSwatchDisplay();
+      if (pwmModal && pwmModal.classList.contains('active')) syncModalValues();
     }
 
     if (w > 0 && h > 0) {
@@ -720,6 +914,14 @@ document.addEventListener('DOMContentLoaded', () => {
       selectTool('line');
     } else if (e.key === 'r' || e.key === 'R') {
       selectTool('rect');
+    } else if (e.key === 'x' || e.key === 'X') {
+      drawEngine.swapFgBg();
+      updateSwatchDisplay();
+      if (pwmModal && pwmModal.classList.contains('active')) syncModalValues();
+    } else if (e.key === 'd' || e.key === 'D') {
+      drawEngine.resetFgBg();
+      updateSwatchDisplay();
+      if (pwmModal && pwmModal.classList.contains('active')) syncModalValues();
     } else if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
       e.preventDefault();
       if (e.shiftKey) {

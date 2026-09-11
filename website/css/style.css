@@ -226,6 +226,136 @@ button.info-pill:hover svg {
   box-shadow: 0 0 12px rgba(255, 26, 0, 0.35);
 }
 
+/* Photoshop-Style Foreground / Background Swatch Widget */
+.swatch-widget {
+  position: relative;
+  width: 44px;
+  height: 48px;
+  margin: 2px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.swatch-stack {
+  position: relative;
+  width: 34px;
+  height: 34px;
+}
+
+.swatch-box {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  border: 1.5px solid var(--border-highlight);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease, box-shadow 0.18s ease;
+  user-select: none;
+}
+
+.swatch-box:hover {
+  border-color: #fff;
+  transform: scale(1.08);
+  z-index: 5 !important;
+}
+
+.swatch-fg {
+  top: 0;
+  left: 0;
+  z-index: 2;
+  background: var(--led-red);
+  box-shadow: 0 0 10px rgba(255, 26, 0, 0.4);
+}
+
+.swatch-bg {
+  bottom: 0;
+  right: 0;
+  z-index: 1;
+  background: #0d0d14;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.swatch-swap-btn {
+  position: absolute;
+  top: -2px;
+  right: 1px;
+  width: 15px;
+  height: 15px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease, transform 0.15s ease;
+  z-index: 4;
+}
+
+.swatch-swap-btn:hover {
+  color: var(--text-primary);
+  transform: scale(1.2) rotate(180deg);
+}
+
+.swatch-reset-btn {
+  position: absolute;
+  bottom: -2px;
+  left: 1px;
+  width: 14px;
+  height: 14px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+  opacity: 0.6;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.swatch-reset-btn:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.swatch-reset-icon {
+  width: 10px;
+  height: 10px;
+  position: relative;
+}
+
+.swatch-reset-icon::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  background: #ffffff;
+  border: 1px solid #000;
+  z-index: 2;
+}
+
+.swatch-reset-icon::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 6px;
+  height: 6px;
+  background: #0a0a10;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  z-index: 1;
+}
+
 /* Standard Buttons */
 .btn {
   display: inline-flex;
@@ -304,53 +434,225 @@ button.info-pill:hover svg {
   gap: 12px;
 }
 
-/* Brightness Controls */
-.brightness-control-box {
-  display: flex;
-  align-items: center;
+/* PWM Modal & Controls */
+.pwm-target-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
-  background: var(--bg-surface);
-  padding: 4px 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
+  margin-bottom: 16px;
 }
 
-.brightness-label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-secondary);
+.pwm-target-tab {
   display: flex;
   align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.pwm-target-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-highlight);
+}
+
+.pwm-target-tab.active {
+  background: rgba(255, 26, 0, 0.12);
+  border-color: var(--led-red);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(255, 26, 0, 0.25);
+}
+
+.pwm-target-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: var(--led-red);
+}
+
+.pwm-preview-card {
+  background: radial-gradient(circle at center, rgba(30, 10, 10, 0.7) 0%, rgba(12, 12, 18, 0.95) 75%);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6);
+}
+
+.pwm-bead-preview-container {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.pwm-preview-led-bead {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #110505;
+  border: 2px solid #220808;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+  transition: box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.pwm-bead-core {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--led-red);
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.pwm-preview-details {
+  display: flex;
+  flex-direction: column;
   gap: 4px;
 }
 
-.brightness-slider {
+.pwm-preview-target-name {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.pwm-preview-stat-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pwm-preview-percent {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.5px;
+}
+
+.pwm-preview-divider {
+  color: var(--text-muted);
+}
+
+.pwm-preview-val {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--accent-cyan);
+}
+
+.pwm-number-input {
+  width: 60px;
+  padding: 4px 6px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-align: right;
+  font-weight: 600;
+}
+
+.pwm-modal-slider {
   appearance: none;
-  width: 100px;
-  height: 5px;
-  border-radius: 3px;
-  background: linear-gradient(90deg, #110000, #ff1a00, #ffffff);
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #0d0d14 0%, var(--led-dim) 20%, var(--led-red) 75%, #ffffff 100%);
   outline: none;
   cursor: pointer;
+  margin-top: 6px;
 }
 
-.brightness-slider::-webkit-slider-thumb {
+.pwm-modal-slider::-webkit-slider-thumb {
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: #ff2200;
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 6px #ff2200;
+  background: #fff;
+  border: 2px solid var(--led-red);
+  box-shadow: 0 0 10px var(--led-red);
   cursor: pointer;
+  transition: transform 0.1s ease;
 }
 
-.brightness-val-badge {
+.pwm-modal-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+}
+
+/* PWM Preset Grid with Filled Squares */
+.pwm-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+}
+
+.pwm-preset-tile {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.pwm-preset-tile:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-highlight);
+  transform: translateY(-2px);
+}
+
+.pwm-preset-tile.active {
+  background: rgba(255, 26, 0, 0.15);
+  border-color: var(--led-red);
+  box-shadow: 0 0 10px rgba(255, 26, 0, 0.3);
+}
+
+.pwm-preset-square {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  background: #090910;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.pwm-square-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--led-red);
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.pwm-preset-label {
   font-family: var(--font-mono);
-  font-size: 11px;
-  min-width: 28px;
-  text-align: right;
-  color: #ff5533;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.pwm-preset-tile.active .pwm-preset-label {
+  color: #fff;
+  font-weight: 700;
 }
 
 .preset-pill {

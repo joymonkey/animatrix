@@ -12,7 +12,7 @@
   <meta http-equiv="Expires" content="0">
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=2.3">
+  <link rel="stylesheet" href="css/style.css?v=2.9">
   <link rel="stylesheet" href="css/matrix.css?v=2.2">
   <link rel="stylesheet" href="css/timeline.css?v=2.2">
 </head>
@@ -125,6 +125,27 @@
 
       <div class="tool-divider"></div>
 
+      <!-- Photoshop-Style Foreground / Background PWM Swatch Widget -->
+      <div class="swatch-widget" id="swatchWidget" title="Foreground & Background PWM Controls">
+        <button class="swatch-swap-btn" id="swatchSwapBtn" type="button" title="Swap Foreground / Background (X)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 10h14l-4-4"></path>
+            <path d="M17 14H3l4 4"></path>
+          </svg>
+        </button>
+        <div class="swatch-stack">
+          <!-- Background Swatch (bottom-right) -->
+          <div class="swatch-box swatch-bg" id="swatchBg" title="Background PWM: 0 (Click to edit)"></div>
+          <!-- Foreground Swatch (top-left) -->
+          <div class="swatch-box swatch-fg" id="swatchFg" title="Foreground PWM: 255 (Click to edit)"></div>
+        </div>
+        <button class="swatch-reset-btn" id="swatchResetBtn" type="button" title="Reset to Defaults: FG 255 / BG 0 (D)">
+          <div class="swatch-reset-icon" aria-hidden="true"></div>
+        </button>
+      </div>
+
+      <div class="tool-divider"></div>
+
       <div class="tool-group">
         <button class="tool-btn" id="undoBtn" title="Undo (Ctrl+Z)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -146,35 +167,6 @@
       
       <!-- Top Canvas Control Bar -->
       <div class="top-control-bar">
-        <!-- Brightness Selector -->
-        <div class="brightness-control-box">
-          <span class="brightness-label">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="12" r="5"></circle>
-              <line x1="12" y1="1" x2="12" y2="3"></line>
-              <line x1="12" y1="21" x2="12" y2="23"></line>
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-              <line x1="1" y1="12" x2="3" y2="12"></line>
-              <line x1="21" y1="12" x2="23" y2="12"></line>
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-            </svg>
-            PWM:
-          </span>
-          <input type="range" id="brightnessSlider" class="brightness-slider" min="0" max="255" value="255">
-          <span class="brightness-val-badge" id="brightnessVal">255</span>
-          
-          <!-- Quick Brightness Presets -->
-          <div style="display: flex; gap: 4px; margin-left: 6px;">
-            <button class="preset-pill active" data-brightness="255">100%</button>
-            <button class="preset-pill" data-brightness="192">75%</button>
-            <button class="preset-pill" data-brightness="128">50%</button>
-            <button class="preset-pill" data-brightness="64">25%</button>
-            <button class="preset-pill" data-brightness="20">10%</button>
-            <button class="preset-pill" data-brightness="0">0%</button>
-          </div>
-        </div>
 
         <!-- LED Size Controls -->
         <div class="led-size-control-box">
@@ -836,7 +828,145 @@
     </div>
   </div>
 
+  <!-- 5. PWM Brightness Modal (Photoshop-Style Foreground/Background) -->
+  <div class="modal-overlay" id="pwmModal">
+    <div class="modal-dialog" style="max-width: 500px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--led-red)" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <h3 id="pwmModalTitle">PWM BRIGHTNESS SELECTOR</h3>
+        </div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Target Selector Tabs (Foreground vs Background) -->
+        <div class="pwm-target-selector">
+          <button type="button" class="pwm-target-tab active" id="pwmTabFg" data-target="fg">
+            <span class="pwm-target-swatch" id="pwmTabFgSwatch"></span>
+            <span>Foreground PWM</span>
+          </button>
+          <button type="button" class="pwm-target-tab" id="pwmTabBg" data-target="bg">
+            <span class="pwm-target-swatch" id="pwmTabBgSwatch"></span>
+            <span>Background PWM</span>
+          </button>
+        </div>
+
+        <!-- Live Visual Preview Bead & Intensity Gauge -->
+        <div class="pwm-preview-card">
+          <div class="pwm-bead-preview-container">
+            <div class="pwm-preview-led-bead" id="pwmLedBead">
+              <div class="pwm-bead-core"></div>
+            </div>
+            <div class="pwm-preview-details">
+              <div class="pwm-preview-target-name" id="pwmTargetName">Foreground PWM Intensity</div>
+              <div class="pwm-preview-stat-row">
+                <span class="pwm-preview-percent" id="pwmPercentBadge">100%</span>
+                <span class="pwm-preview-divider">&bull;</span>
+                <span class="pwm-preview-val" id="pwmValueBadge">255 / 255 PWM</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Precision Range Slider & Numeric Input -->
+        <div class="form-group" style="margin-top: 14px;">
+          <div class="slider-val-label">
+            <span style="font-family: var(--font-display); letter-spacing: 0.5px; font-size: 11px;">PRECISE PWM VALUE (0 - 255)</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <input type="number" id="pwmNumberInput" min="0" max="255" value="255" class="form-input pwm-number-input">
+              <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">/ 255</span>
+            </div>
+          </div>
+          <input type="range" id="pwmSlider" min="0" max="255" value="255" class="pwm-modal-slider">
+        </div>
+
+        <!-- PWM % Presets with Filled Representative Squares -->
+        <div class="form-group" style="margin-top: 16px;">
+          <label style="font-size: 11px; font-family: var(--font-display); letter-spacing: 0.5px; margin-bottom: 8px;">
+            PWM INTENSITY PRESETS
+          </label>
+          <div class="pwm-preset-grid" id="pwmPresetGrid">
+            <button class="pwm-preset-tile active" type="button" data-pwm="255" data-percent="100" title="100% Brightness (255 PWM)">
+              <div class="pwm-preset-square">
+                <div class="pwm-square-fill" style="opacity: 1.0;"></div>
+              </div>
+              <span class="pwm-preset-label">100%</span>
+            </button>
+            <button class="pwm-preset-tile" type="button" data-pwm="192" data-percent="75" title="75% Brightness (192 PWM)">
+              <div class="pwm-preset-square">
+                <div class="pwm-square-fill" style="opacity: 0.75;"></div>
+              </div>
+              <span class="pwm-preset-label">75%</span>
+            </button>
+            <button class="pwm-preset-tile" type="button" data-pwm="128" data-percent="50" title="50% Brightness (128 PWM)">
+              <div class="pwm-preset-square">
+                <div class="pwm-square-fill" style="opacity: 0.50;"></div>
+              </div>
+              <span class="pwm-preset-label">50%</span>
+            </button>
+            <button class="pwm-preset-tile" type="button" data-pwm="64" data-percent="25" title="25% Brightness (64 PWM)">
+              <div class="pwm-preset-square">
+                <div class="pwm-square-fill" style="opacity: 0.25;"></div>
+              </div>
+              <span class="pwm-preset-label">25%</span>
+            </button>
+            <button class="pwm-preset-tile" type="button" data-pwm="26" data-percent="10" title="10% Brightness (26 PWM)">
+              <div class="pwm-preset-square">
+                <div class="pwm-square-fill" style="opacity: 0.10;"></div>
+              </div>
+              <span class="pwm-preset-label">10%</span>
+            </button>
+            <button class="pwm-preset-tile" type="button" data-pwm="13" data-percent="5" title="5% Brightness (13 PWM)">
+              <div class="pwm-preset-square">
+                <div class="pwm-square-fill" style="opacity: 0.05;"></div>
+              </div>
+              <span class="pwm-preset-label">5%</span>
+            </button>
+            <button class="pwm-preset-tile" type="button" data-pwm="3" data-percent="1" title="1% Brightness (3 PWM)">
+              <div class="pwm-preset-square">
+                <div class="pwm-square-fill" style="opacity: 0.02;"></div>
+              </div>
+              <span class="pwm-preset-label">1%</span>
+            </button>
+            <button class="pwm-preset-tile" type="button" data-pwm="0" data-percent="0" title="0% (Off / 0 PWM)">
+              <div class="pwm-preset-square">
+                <div class="pwm-square-fill" style="opacity: 0.0;"></div>
+              </div>
+              <span class="pwm-preset-label">0%</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-subtle" id="pwmModalSwapBtn" type="button" title="Swap Foreground and Background (X)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M7 10h14l-4-4"></path><path d="M17 14H3l4 4"></path>
+            </svg>
+            <span>Swap (X)</span>
+          </button>
+          <button class="btn btn-subtle" id="pwmModalResetBtn" type="button" title="Reset to Defaults: FG 255 / BG 0 (D)">
+            <span>Default (D)</span>
+          </button>
+        </div>
+        <button class="btn btn-primary" id="pwmModalDoneBtn" type="button" style="padding: 6px 20px;">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Main ES Module Script -->
-  <script type="module" src="js/app.js?v=2.8"></script>
+  <script type="module" src="js/app.js?v=2.9"></script>
 </body>
 </html>

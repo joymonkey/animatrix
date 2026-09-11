@@ -11,7 +11,9 @@ export class DrawEngine {
 
     // Tool state
     this.currentTool = 'pencil'; // 'pencil', 'eraser', 'eyedropper', 'fill', 'line', 'rect', 'rect_filled'
-    this.brushBrightness = 255;  // 0 - 255
+    this.fgBrightness = 255;     // Foreground PWM (0 - 255)
+    this.bgBrightness = 0;       // Background PWM (0 - 255)
+    this.activeStrokeBrightness = 255;
     this.wrapShift = true;       // Wrap pixels around edges when shifting
 
     // Drag / Geometry Start Point
@@ -23,12 +25,49 @@ export class DrawEngine {
     this._setupCanvasCallbacks();
   }
 
+  get brushBrightness() {
+    return this.fgBrightness;
+  }
+
+  set brushBrightness(val) {
+    this.setFgBrightness(val);
+  }
+
   setTool(toolName) {
     this.currentTool = toolName;
   }
 
+  setFgBrightness(val) {
+    this.fgBrightness = Math.max(0, Math.min(255, Math.round(val)));
+    if (this.onBrightnessChange) this.onBrightnessChange('fg', this.fgBrightness);
+  }
+
+  setBgBrightness(val) {
+    this.bgBrightness = Math.max(0, Math.min(255, Math.round(val)));
+    if (this.onBrightnessChange) this.onBrightnessChange('bg', this.bgBrightness);
+  }
+
   setBrightness(val) {
-    this.brushBrightness = Math.max(0, Math.min(255, Math.round(val)));
+    this.setFgBrightness(val);
+  }
+
+  swapFgBg() {
+    const tmp = this.fgBrightness;
+    this.fgBrightness = this.bgBrightness;
+    this.bgBrightness = tmp;
+    if (this.onBrightnessChange) {
+      this.onBrightnessChange('fg', this.fgBrightness);
+      this.onBrightnessChange('bg', this.bgBrightness);
+    }
+  }
+
+  resetFgBg() {
+    this.fgBrightness = 255;
+    this.bgBrightness = 0;
+    if (this.onBrightnessChange) {
+      this.onBrightnessChange('fg', this.fgBrightness);
+      this.onBrightnessChange('bg', this.bgBrightness);
+    }
   }
 
   _setupCanvasCallbacks() {
@@ -40,39 +79,45 @@ export class DrawEngine {
         this.isDragging = true;
 
         if (this.currentTool === 'pencil') {
-          this.state.setPixel(x, y, this.brushBrightness);
+          const currentVal = this.state.getPixel(x, y);
+          // Clicking once sets to foreground PWM; clicking a second time sets to background PWM
+          this.activeStrokeBrightness = (currentVal === this.fgBrightness) ? this.bgBrightness : this.fgBrightness;
+          this.state.setPixel(x, y, this.activeStrokeBrightness);
         } else if (this.currentTool === 'eraser') {
           this.state.setPixel(x, y, 0);
         } else if (this.currentTool === 'eyedropper') {
           const picked = this.state.getPixel(x, y);
-          this.setBrightness(picked);
-          if (this.onEyedropperPick) this.onEyedropperPick(picked);
+          if (this.onEyedropperPick) {
+            this.onEyedropperPick(picked, event);
+          } else {
+            this.setFgBrightness(picked);
+          }
         } else if (this.currentTool === 'fill') {
-          this.floodFill(x, y, this.brushBrightness);
+          this.floodFill(x, y, this.fgBrightness);
         } else if (this.currentTool === 'line' || this.currentTool === 'rect' || this.currentTool === 'rect_filled') {
           // Clone buffer for previewing shapes while dragging
           this.previewBuffer = new Uint8Array(this.state.activeFrame.data);
         }
       } else if (this.isDragging && !isEnd) {
         if (this.currentTool === 'pencil') {
-          this.state.setPixel(x, y, this.brushBrightness);
+          this.state.setPixel(x, y, this.activeStrokeBrightness);
         } else if (this.currentTool === 'eraser') {
           this.state.setPixel(x, y, 0);
         } else if (this.currentTool === 'line' && this.previewBuffer) {
-          this._previewShape((buf) => this._rasterizeLine(this.dragStartX, this.dragStartY, x, y, this.brushBrightness, buf));
+          this._previewShape((buf) => this._rasterizeLine(this.dragStartX, this.dragStartY, x, y, this.fgBrightness, buf));
         } else if (this.currentTool === 'rect' && this.previewBuffer) {
-          this._previewShape((buf) => this._rasterizeRect(this.dragStartX, this.dragStartY, x, y, this.brushBrightness, false, buf));
+          this._previewShape((buf) => this._rasterizeRect(this.dragStartX, this.dragStartY, x, y, this.fgBrightness, false, buf));
         } else if (this.currentTool === 'rect_filled' && this.previewBuffer) {
-          this._previewShape((buf) => this._rasterizeRect(this.dragStartX, this.dragStartY, x, y, this.brushBrightness, true, buf));
+          this._previewShape((buf) => this._rasterizeRect(this.dragStartX, this.dragStartY, x, y, this.fgBrightness, true, buf));
         }
       } else if (isEnd) {
         if (this.previewBuffer) {
           if (this.currentTool === 'line') {
-            this._rasterizeLine(this.dragStartX, this.dragStartY, x, y, this.brushBrightness);
+            this._rasterizeLine(this.dragStartX, this.dragStartY, x, y, this.fgBrightness);
           } else if (this.currentTool === 'rect') {
-            this._rasterizeRect(this.dragStartX, this.dragStartY, x, y, this.brushBrightness, false);
+            this._rasterizeRect(this.dragStartX, this.dragStartY, x, y, this.fgBrightness, false);
           } else if (this.currentTool === 'rect_filled') {
-            this._rasterizeRect(this.dragStartX, this.dragStartY, x, y, this.brushBrightness, true);
+            this._rasterizeRect(this.dragStartX, this.dragStartY, x, y, this.fgBrightness, true);
           }
           this.previewBuffer = null;
         }
