@@ -35,7 +35,6 @@ Designed for an **8-bit PWM matrix** (such as a 40×3 120-LED display) powered b
   - Live miniature canvas thumbnails for every frame.
   - Drag-and-drop frame reordering.
   - Per-frame duration control (e.g., hold eye open for 1200ms, blink for 40ms).
-  - **Onion Skinning**: Ghosted previous frame (cyan) and next frame (amber).
   - Playback loop modes: **Infinite Loop**, **Play Once**, and **Ping-Pong (Bounce)**.
 - **Built-in Procedural Generators & Compositing**:
   - **Generators**: Cylon/KITT sweeps (multiple shapes & turnaround endpoints), robotic eye expressions (blink, wink, squint, scan with auto-proportional geometry), 40-band audio spectrum equalizers, sinusoidal breathing pulses, and text marquees.

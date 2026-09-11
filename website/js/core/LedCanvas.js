@@ -1,7 +1,7 @@
 /**
  * LedCanvas.js
  * High-performance 2D Canvas renderer providing photorealistic red LED matrix simulation.
- * Includes bloom glow, 8-bit PWM brightness shading, onion skinning, and visor filter effects.
+ * Includes bloom glow, 8-bit PWM brightness shading, and visor filter effects.
  */
 
 const LED_COLOR_PALETTES = {
@@ -59,12 +59,6 @@ export class LedCanvas {
     this.showVisorFilter = false;
     this.showCenterAxis = true;
     this.showCenterDivider = true; // backwards compatibility alias
-    
-    // Onion skinning
-    this.onionSkinning = false;
-    this.onionSkinPrev = true;
-    this.onionSkinNext = true;
-    this.onionOpacity = 0.35;
 
     // Interaction state
     this.hoverX = -1;
@@ -215,12 +209,7 @@ export class LedCanvas {
     // 2. Draw PCB trace pattern or subtle grid housing
     this._drawGridHousing(ctx);
 
-    // 3. Draw Onion Skinning if enabled
-    if (this.onionSkinning && this.state.frames.length > 1) {
-      this._drawOnionSkin(ctx);
-    }
-
-    // 4. Draw Active Frame LEDs
+    // 3. Draw Active Frame LEDs
     const activeFrame = this.state.activeFrame;
     if (!activeFrame) return;
 
@@ -350,48 +339,6 @@ export class LedCanvas {
     ctx.fill();
 
     ctx.restore();
-  }
-
-  _drawOnionSkin(ctx) {
-    const currIdx = this.state.activeFrameIndex;
-    const pitch = this.pixelSize + this.pixelGap;
-    const radius = this.pixelSize / 2;
-
-    // Previous Frame (Ghost Cyan)
-    if (this.onionSkinPrev && currIdx > 0) {
-      const prevFrame = this.state.frames[currIdx - 1];
-      for (let y = 0; y < this.state.height; y++) {
-        for (let x = 0; x < this.state.width; x++) {
-          const b = prevFrame.data[y * this.state.width + x];
-          if (b > 0 && this.state.getPixel(x, y) === 0) {
-            const cx = this.offsetX + x * pitch + radius;
-            const cy = this.offsetY + y * pitch + radius;
-            ctx.beginPath();
-            ctx.arc(cx, cy, radius - 2, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(0, 240, 255, ${(b / 255) * this.onionOpacity})`;
-            ctx.fill();
-          }
-        }
-      }
-    }
-
-    // Next Frame (Ghost Amber/Yellow)
-    if (this.onionSkinNext && currIdx < this.state.frames.length - 1) {
-      const nextFrame = this.state.frames[currIdx + 1];
-      for (let y = 0; y < this.state.height; y++) {
-        for (let x = 0; x < this.state.width; x++) {
-          const b = nextFrame.data[y * this.state.width + x];
-          if (b > 0 && this.state.getPixel(x, y) === 0) {
-            const cx = this.offsetX + x * pitch + radius;
-            const cy = this.offsetY + y * pitch + radius;
-            ctx.beginPath();
-            ctx.arc(cx, cy, radius - 2, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(255, 170, 0, ${(b / 255) * this.onionOpacity})`;
-            ctx.fill();
-          }
-        }
-      }
-    }
   }
 
   _drawCenterAxis(ctx) {

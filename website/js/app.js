@@ -86,7 +86,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Display toggles
   const toggleGlow = document.getElementById('toggleGlow');
   const toggleVisor = document.getElementById('toggleVisor');
-  const toggleOnion = document.getElementById('toggleOnion');
   const toggleDivider = document.getElementById('toggleDivider');
 
   // Modals & Triggers
@@ -585,11 +584,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   toggleVisor.addEventListener('change', (e) => {
     ledCanvas.showVisorFilter = e.target.checked;
-    ledCanvas.render();
-  });
-
-  toggleOnion.addEventListener('change', (e) => {
-    ledCanvas.onionSkinning = e.target.checked;
     ledCanvas.render();
   });
 
