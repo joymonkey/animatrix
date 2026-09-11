@@ -1,6 +1,6 @@
 /*
  * style.css
- * Daft Punk Retro-Futuristic Aesthetic for Animatrix Studio
+ * Retro-Futuristic Aesthetic for Animatrix Studio
  * Glassmorphism, neon red phosphor glows, high-contrast matte surfaces.
  */
 
@@ -11,19 +11,19 @@
   --bg-surface: #101018;
   --bg-elevated: #181824;
   --bg-hover: #222234;
-  
+
   --border-subtle: #242436;
   --border-highlight: #3a3a52;
-  
+
   --led-red: #ff1a00;
   --led-glow: rgba(255, 26, 0, 0.4);
   --led-dim: #3a0808;
-  
+
   --accent-cyan: #00f0ff;
   --accent-cyan-glow: rgba(0, 240, 255, 0.35);
   --accent-amber: #ffaa00;
   --accent-pink: #ff007f;
-  
+
   --text-primary: #f0f2ff;
   --text-secondary: #9094b0;
   --text-muted: #565972;
@@ -31,11 +31,11 @@
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  
+
   --font-display: 'Orbitron', monospace;
   --font-sans: 'Space Grotesk', -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  
+
   --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.65);
   --shadow-neon: 0 0 16px var(--led-glow);
 }
@@ -56,7 +56,7 @@ body {
   flex-direction: column;
   overflow: hidden;
   user-select: none;
-  background-image: 
+  background-image:
     radial-gradient(circle at 50% 0%, rgba(255, 26, 0, 0.08) 0%, transparent 50%),
     linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
@@ -364,7 +364,8 @@ button.info-pill:hover svg {
   cursor: pointer;
 }
 
-.preset-pill:hover, .preset-pill.active {
+.preset-pill:hover,
+.preset-pill.active {
   background: rgba(255, 26, 0, 0.2);
   border-color: var(--led-red);
   color: #fff;
@@ -536,7 +537,9 @@ button.info-pill:hover svg {
   color: var(--text-secondary);
 }
 
-.form-input, .form-select, .form-textarea {
+.form-input,
+.form-select,
+.form-textarea {
   background: var(--bg-deep);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -548,7 +551,9 @@ button.info-pill:hover svg {
   transition: border-color 0.15s ease;
 }
 
-.form-input:focus, .form-select:focus, .form-textarea:focus {
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
   border-color: var(--accent-cyan);
   box-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
 }

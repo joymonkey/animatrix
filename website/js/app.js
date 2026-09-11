@@ -602,27 +602,39 @@ document.addEventListener('DOMContentLoaded', () => {
   // Export Modal Handlers
   const exportJsonCode = document.getElementById('exportJsonCode');
   const exportEncodingSelect = document.getElementById('exportEncodingSelect');
+  const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+  const copyJsonBtn = document.getElementById('copyJsonBtn');
 
   function refreshExportPreview() {
-    const encoding = exportEncodingSelect.value;
-    const jsonStr = jsonHandler.exportToJsonString({ encoding, indent: true });
-    exportJsonCode.value = jsonStr;
+    const format = exportEncodingSelect.value;
+    if (format === 'cpp_progmem') {
+      exportJsonCode.value = cppExporter.generateHeaderCode();
+      downloadJsonBtn.textContent = 'Download .h';
+      copyJsonBtn.textContent = 'Copy C++';
+    } else {
+      const jsonStr = jsonHandler.exportToJsonString({ encoding: format, indent: true });
+      exportJsonCode.value = jsonStr;
+      downloadJsonBtn.textContent = 'Download .json';
+      copyJsonBtn.textContent = 'Copy JSON';
+    }
   }
 
   openExportModalBtn.addEventListener('click', refreshExportPreview);
   exportEncodingSelect.addEventListener('change', refreshExportPreview);
 
-  document.getElementById('downloadJsonBtn').onclick = () => {
-    jsonHandler.downloadJson({ encoding: exportEncodingSelect.value, indent: true });
+  downloadJsonBtn.onclick = () => {
+    const format = exportEncodingSelect.value;
+    if (format === 'cpp_progmem') {
+      cppExporter.downloadHeader();
+    } else {
+      jsonHandler.downloadJson({ encoding: format, indent: true });
+    }
   };
 
-  document.getElementById('downloadCppBtn').onclick = () => {
-    cppExporter.downloadHeader();
-  };
-
-  document.getElementById('copyJsonBtn').onclick = () => {
+  copyJsonBtn.onclick = () => {
+    const isCpp = exportEncodingSelect.value === 'cpp_progmem';
     navigator.clipboard.writeText(exportJsonCode.value).then(() => {
-      alert('JSON copied to clipboard!');
+      alert((isCpp ? 'C++ header' : 'JSON') + ' copied to clipboard!');
     });
   };
 

@@ -12,7 +12,7 @@
   <meta http-equiv="Expires" content="0">
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=2.2">
+  <link rel="stylesheet" href="css/style.css?v=2.3">
   <link rel="stylesheet" href="css/matrix.css?v=2.2">
   <link rel="stylesheet" href="css/timeline.css?v=2.2">
 </head>
@@ -783,10 +783,11 @@
       <div class="modal-body">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px;">
-            <label style="margin: 0; font-size: 11px;">JSON Format:</label>
+            <label style="margin: 0; font-size: 11px;">Export Format:</label>
             <select id="exportEncodingSelect" class="form-select" style="padding: 3px 8px; font-size: 11px;">
-              <option value="hex_stream">Compact Hex Stream (Optimized for ESP32)</option>
-              <option value="raw_array">Human-Readable 2D Array</option>
+              <option value="hex_stream">Compact JSON (Optimized for ESP32)</option>
+              <option value="raw_array">"Human After All" Friendly JSON</option>
+              <option value="cpp_progmem">PROGMEM C++ Table (.h)</option>
             </select>
           </div>
           <div>
@@ -802,7 +803,6 @@
         <div style="display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 16px;">
           <button class="btn btn-subtle" id="copyJsonBtn">Copy JSON</button>
           <button class="btn btn-primary" id="downloadJsonBtn">Download .json</button>
-          <button class="btn btn-cyan" id="downloadCppBtn">Download C++ (.h)</button>
         </div>
 
         <!-- Direct WiFi Push to Helmet Section -->
@@ -837,6 +837,6 @@
   </div>
 
   <!-- Main ES Module Script -->
-  <script type="module" src="js/app.js?v=2.7"></script>
+  <script type="module" src="js/app.js?v=2.8"></script>
 </body>
 </html>
