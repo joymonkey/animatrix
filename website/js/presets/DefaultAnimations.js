@@ -1,6 +1,7 @@
 /**
  * DefaultAnimations.js
  * Pre-bundled preset configurations and generator integration for Animatrix Studio.
+ * Synchronized to standard composite frame counts (24, 36, 48, 60 frames) for polyrhythmic looping.
  */
 
 import { Generators } from '../tools/Generators.js';
@@ -18,9 +19,9 @@ export class PresetLibrary {
           rightEndMode: 'offscreen',
           beamWidth: 3,
           tailLength: 6,
-          framesPerPass: 40,
+          framesPerPass: 24,
           repetitions: 1,
-          roundTrip: false,
+          roundTrip: true,
           startDirection: 'left_to_right'
         }
       },
@@ -32,7 +33,7 @@ export class PresetLibrary {
           expression: 'blink',
           style: 'block',
           eyeWidth: 10,
-          holdDurationMs: 1200
+          targetTotalFrames: 48
         }
       },
       {
@@ -42,7 +43,7 @@ export class PresetLibrary {
         defaultOptions: {
           style: 'solid',
           bands: 16,
-          numFrames: 40
+          numFrames: 48
         }
       },
       {
@@ -52,7 +53,7 @@ export class PresetLibrary {
         defaultOptions: {
           pattern: 'breathe',
           numPulses: 2,
-          framesPerCycle: 20
+          framesPerCycle: 24
         }
       },
       {
@@ -74,6 +75,16 @@ export class PresetLibrary {
     const opts = Object.assign({}, preset ? preset.defaultOptions : {}, customOptions);
     opts.insertion = insertionOptions;
 
+    // In overlay mode, automatically align target total frames to active timeline length
+    if (insertionOptions && insertionOptions.mode === 'overlay') {
+      const isBlankSingle = matrixState.frames.length === 1 && matrixState.frames[0].data.every(v => v === 0);
+      if (!isBlankSingle && matrixState.frames.length > 0) {
+        if (!opts.targetTotalFrames) {
+          opts.targetTotalFrames = matrixState.frames.length;
+        }
+      }
+    }
+
     switch (presetId) {
       case 'cylon':
         gen.generateCylonScanner(opts);
@@ -81,8 +92,8 @@ export class PresetLibrary {
 
       case 'robot_eyes':
       case 'robot_blink':
-        if (customOptions.eyeWidth === undefined && matrixState.width === 16) {
-          opts.eyeWidth = 6;
+        if (customOptions.eyeWidth === undefined && matrixState.width <= 16) {
+          opts.eyeWidth = Math.max(2, Math.floor((matrixState.width - 2) / 2));
         }
         gen.generateRobotEyes(opts);
         break;

@@ -156,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
           expression: exp,
           style: sty,
           eyeWidth: eyeW,
-          holdDurationMs: 900 + Math.floor(Math.random() * 800)
+          targetTotalFrames: 48
         });
         matrixState.name = `robot_${exp}`;
       },
@@ -169,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
         PresetLibrary.loadPreset('equalizer', matrixState, {
           style: sty,
           bands: bands,
-          numFrames: 40
+          numFrames: 48
         });
         matrixState.name = `eq_${sty}_${bands}band`;
       },
@@ -179,8 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const pat = patterns[Math.floor(Math.random() * patterns.length)];
         PresetLibrary.loadPreset('pulse', matrixState, {
           pattern: pat,
-          numPulses: 3,
-          framesPerCycle: 20
+          numPulses: 2,
+          framesPerCycle: 24
         });
         matrixState.name = `visor_pulse_${pat}`;
       },
@@ -208,14 +208,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         matrixState.name = text.toLowerCase().replace(/\s+/g, '_');
       },
-      // 5. High-Speed Bouncing Chevron Cylon
+      // 5. High-Speed Bouncing Chevron Cylon (48 frames)
       () => {
         PresetLibrary.loadPreset('cylon', matrixState, {
           shape: 'fading_chevron',
           roundTrip: true,
           startDirection: Math.random() > 0.5 ? 'left_to_right' : 'right_to_left',
           repetitions: 2,
-          framesPerPass: 24,
+          framesPerPass: 12,
           beamWidth: 3,
           tailLength: 8,
           headBrightness: 255
@@ -616,7 +616,73 @@ document.addEventListener('DOMContentLoaded', () => {
   if (openEspModalBtn) setupModal('espModal', openEspModalBtn);
 
   if (openPresetModalBtn) {
-    openPresetModalBtn.addEventListener('click', () => updateEyeControls());
+    openPresetModalBtn.addEventListener('click', () => {
+      updateEyeControls();
+      updateOverlaySyncUI();
+    });
+  }
+
+  // Harmonic Speed & Timeline Synchronization for Overlay Mode
+  function updateOverlaySyncUI() {
+    const timelineLenEl = document.getElementById('presetActiveTimelineLen');
+    const syncLoopText = document.getElementById('presetSyncLoopText');
+    const divisionSelect = document.getElementById('presetHarmonicDivisionSelect');
+
+    const timelineFrames = matrixState.frames.length;
+    if (timelineLenEl) timelineLenEl.textContent = timelineFrames;
+
+    const division = parseInt(divisionSelect ? divisionSelect.value : '1', 10) || 1;
+    const targetCycleFrames = Math.max(2, Math.floor(timelineFrames / division));
+
+    if (syncLoopText) {
+      if (division === 1) {
+        syncLoopText.textContent = `✓ Seamless 1:1 Loop (${targetCycleFrames}f)`;
+      } else {
+        syncLoopText.textContent = `✓ Seamless ${division}× Loop (${targetCycleFrames}f / cycle)`;
+      }
+    }
+
+    // Auto-adjust generator inputs to conform to targetCycleFrames
+    if (activePresetTab === 'cylon') {
+      const roundTrip = document.getElementById('cylonRoundTripSelect')?.value === 'true';
+      const passes = roundTrip ? 2 : 1;
+      const cylonInput = document.getElementById('cylonFramesInput');
+      if (cylonInput) {
+        cylonInput.value = Math.max(2, Math.floor(targetCycleFrames / passes));
+        const badge = document.getElementById('cylonFramesVal');
+        if (badge) badge.textContent = `${cylonInput.value} frames`;
+        updateCylonSummary();
+      }
+    } else if (activePresetTab === 'robot_eyes') {
+      const eyeInput = document.getElementById('eyeFramesInput');
+      if (eyeInput) {
+        eyeInput.value = targetCycleFrames;
+        const badge = document.getElementById('eyeFramesVal');
+        if (badge) badge.textContent = `${eyeInput.value} frames`;
+      }
+    } else if (activePresetTab === 'equalizer') {
+      const eqInput = document.getElementById('eqFramesInput');
+      if (eqInput) {
+        eqInput.value = targetCycleFrames;
+        const badge = document.getElementById('eqFramesVal');
+        if (badge) badge.textContent = `${eqInput.value} frames`;
+        updateEqSummary();
+      }
+    } else if (activePresetTab === 'pulse') {
+      const numPulses = parseInt(document.getElementById('pulseCountSelect')?.value, 10) || 2;
+      const pulseInput = document.getElementById('pulseFramesCycleInput');
+      if (pulseInput) {
+        pulseInput.value = Math.max(2, Math.floor(targetCycleFrames / numPulses));
+        const badge = document.getElementById('pulseFramesCycleVal');
+        if (badge) badge.textContent = `${pulseInput.value} frames`;
+        updatePulseSummary();
+      }
+    }
+  }
+
+  const harmonicSelect = document.getElementById('presetHarmonicDivisionSelect');
+  if (harmonicSelect) {
+    harmonicSelect.addEventListener('change', updateOverlaySyncUI);
   }
 
   // Mode pill selections for Preset
@@ -634,6 +700,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const mode = pill.dataset.mode;
         if (overlayOptions) {
           overlayOptions.style.display = (mode === 'overlay') ? 'flex' : 'none';
+          if (mode === 'overlay') {
+            updateOverlaySyncUI();
+          }
         }
       });
     });
@@ -654,6 +723,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (activePresetTab === 'robot_eyes') {
         updateEyeControls();
       }
+      const modeRadio = document.querySelector('input[name="presetInsertMode"]:checked');
+      if (modeRadio && modeRadio.value === 'overlay') {
+        updateOverlaySyncUI();
+      }
     });
   });
 
@@ -672,7 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bindSliderBadge('cylonTailLengthInput', 'cylonTailVal', ' px');
   bindSliderBadge('cylonFramesInput', 'cylonFramesVal', ' frames');
   bindSliderBadge('eyeWidthInput', 'eyeWidthVal', ' px');
-  bindSliderBadge('eyeHoldInput', 'eyeHoldVal', ' ms');
+  bindSliderBadge('eyeFramesInput', 'eyeFramesVal', ' frames');
   bindSliderBadge('eqFramesInput', 'eqFramesVal', ' frames');
   bindSliderBadge('pulseFramesCycleInput', 'pulseFramesCycleVal', ' frames');
 
@@ -812,9 +885,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('generatePresetBtn').onclick = () => {
     const modeRadio = document.querySelector('input[name="presetInsertMode"]:checked');
     const mode = modeRadio ? modeRadio.value : 'replace';
-    const blendMode = document.getElementById('presetBlendModeSelect').value || 'add';
-    const durationSync = document.getElementById('presetDurationSyncSelect').value || 'loop';
-    const insertionOptions = { mode, blendMode, durationSync };
+    const blendMode = document.getElementById('presetBlendModeSelect')?.value || 'add';
+    const divisionSelect = document.getElementById('presetHarmonicDivisionSelect');
+    const harmonicDivision = parseInt(divisionSelect ? divisionSelect.value : '1', 10) || 1;
+    const insertionOptions = { mode, blendMode };
+
+    let targetTotalFrames = null;
+    if (mode === 'overlay' && matrixState.frames.length > 0) {
+      targetTotalFrames = Math.max(2, Math.floor(matrixState.frames.length / harmonicDivision));
+    }
 
     if (activePresetTab === 'cylon') {
       const shape = document.getElementById('cylonShapeSelect').value;
@@ -825,7 +904,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const rightEndMode = document.getElementById('cylonRightEndSelect').value;
       const beamWidth = parseInt(document.getElementById('cylonBeamWidthInput').value, 10) || 3;
       const tailLength = parseInt(document.getElementById('cylonTailLengthInput').value, 10) || 6;
-      const framesPerPass = parseInt(document.getElementById('cylonFramesInput').value, 10) || 40;
+      const framesPerPass = parseInt(document.getElementById('cylonFramesInput').value, 10) || 24;
 
       PresetLibrary.loadPreset('cylon', matrixState, {
         shape,
@@ -837,39 +916,42 @@ document.addEventListener('DOMContentLoaded', () => {
         beamWidth,
         tailLength,
         framesPerPass,
+        targetTotalFrames,
         headBrightness: drawEngine.brushBrightness
       }, insertionOptions);
     } else if (activePresetTab === 'robot_eyes') {
       const expression = document.getElementById('eyeExpressionSelect').value;
       const style = document.getElementById('eyeStyleSelect').value;
       const eyeWidth = parseInt(document.getElementById('eyeWidthInput').value, 10) || 10;
-      const holdDurationMs = parseInt(document.getElementById('eyeHoldInput').value, 10) || 1200;
+      const eyeFrames = parseInt(document.getElementById('eyeFramesInput')?.value, 10) || 48;
 
       PresetLibrary.loadPreset('robot_eyes', matrixState, {
         expression,
         style,
         eyeWidth,
-        holdDurationMs
+        targetTotalFrames: targetTotalFrames || eyeFrames
       }, insertionOptions);
     } else if (activePresetTab === 'equalizer') {
       const style = document.getElementById('eqStyleSelect').value;
       const bands = parseInt(document.getElementById('eqBandsSelect').value, 10) || 16;
-      const numFrames = parseInt(document.getElementById('eqFramesInput').value, 10) || 40;
+      const numFrames = parseInt(document.getElementById('eqFramesInput').value, 10) || 48;
 
       PresetLibrary.loadPreset('equalizer', matrixState, {
         style,
         bands,
-        numFrames
+        numFrames,
+        targetTotalFrames
       }, insertionOptions);
     } else if (activePresetTab === 'pulse') {
       const pattern = document.getElementById('pulsePatternSelect').value;
       const numPulses = parseInt(document.getElementById('pulseCountSelect').value, 10) || 2;
-      const framesPerCycle = parseInt(document.getElementById('pulseFramesCycleInput').value, 10) || 20;
+      const framesPerCycle = parseInt(document.getElementById('pulseFramesCycleInput').value, 10) || 24;
 
       PresetLibrary.loadPreset('pulse', matrixState, {
         pattern,
         numPulses,
-        framesPerCycle
+        framesPerCycle,
+        targetTotalFrames
       }, insertionOptions);
     } else if (activePresetTab === 'marquee') {
       const text = document.getElementById('presetMarqueeTextInput')?.value || 'ANIMATRIX';
@@ -927,7 +1009,7 @@ document.addEventListener('DOMContentLoaded', () => {
       downloadJsonBtn.textContent = 'Download .h';
       copyJsonBtn.textContent = 'Copy C++';
     } else {
-      const jsonStr = jsonHandler.exportToJsonString({ encoding: format, indent: true });
+      const jsonStr = jsonHandler.exportToJsonString({ indent: true });
       exportJsonCode.value = jsonStr;
       downloadJsonBtn.textContent = 'Download .json';
       copyJsonBtn.textContent = 'Copy JSON';
@@ -942,7 +1024,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (format === 'cpp_progmem') {
       cppExporter.downloadHeader();
     } else {
-      jsonHandler.downloadJson({ encoding: format, indent: true });
+      jsonHandler.downloadJson({ indent: true });
     }
   };
 

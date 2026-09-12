@@ -1,8 +1,9 @@
 /**
  * Generators.js
- * Procedural animation generators for Daft Punk helmet visors.
+ * Procedural animation generators for Daft Punk helmet visors and custom LED matrices.
+ * Fully resolution-agnostic (supports any W x H) and strictly frame-quantized.
  * Includes:
- * 1. Text Marquee Scroller (using MicroFont 3-row bitmap)
+ * 1. Text Marquee Scroller (using MicroFont 3-row bitmap, vertically auto-centered)
  * 2. Cylon / KITT Visor Scanner (customizable shapes & turnaround margins)
  * 3. Audio Spectrum Equalizer (solid, peak dots, waveforms)
  * 4. Robot Eye Expressions (Blink, Wink L/R, Squint, Scan, Shock)
@@ -17,11 +18,11 @@ export class Generators {
   }
 
   /**
-   * Generates a smooth scrolling text marquee across the matrix
+   * Generates a smooth scrolling text marquee across the matrix.
+   * Auto-centers vertically on matrices of any height H >= 3.
    */
   generateMarquee(text = 'DAFT PUNK', options = {}) {
     const {
-      fps = 24,
       scrollDirection = 'left', // 'left' or 'right'
       leadInBlankCols = this.state.width,
       leadOutBlankCols = this.state.width,
@@ -35,9 +36,10 @@ export class Generators {
     const matrixW = this.state.width;
     const matrixH = this.state.height;
 
+    // Center font vertically for any matrix height
     const startY = Math.max(0, Math.floor((matrixH - textHeight) / 2));
     const totalSteps = leadInBlankCols + textWidth + leadOutBlankCols;
-    const frameDurationMs = Math.round(1000 / fps);
+    const frameDurationMs = this.state.defaultDurationMs;
     const newFrames = [];
 
     for (let step = 0; step < totalSteps; step++) {
@@ -71,27 +73,33 @@ export class Generators {
   /**
    * Generates a Cylon / KITT Visor Scanner with customizable shapes, turnaround points,
    * frame counts per sweep, and repetitions.
-   * Shapes: 'fading_line', 'single_line', 'fading_chevron', 'chevron'
-   * Endpoints: 'offscreen', 'edge', 'margin_2', 'margin_4', 'margin_8'
+   * Supports targetTotalFrames for exact timeline conforming.
    */
   generateCylonScanner(options = {}) {
-    const {
+    let {
       shape = 'fading_line',            // 'single_line', 'chevron', 'fading_line', 'fading_chevron'
       leftEndMode = 'offscreen',        // 'offscreen', 'edge', 'margin_2', 'margin_4', 'margin_8'
       rightEndMode = 'offscreen',       // 'offscreen', 'edge', 'margin_2', 'margin_4', 'margin_8'
       beamWidth = 3,
       tailLength = 6,
       headBrightness = 255,
-      framesPerPass = 40,               // Number of frames for a single pass
+      framesPerPass = 24,               // Number of frames for a single pass
       repetitions = 1,                  // Number of cycles / sweeps
       roundTrip = true,                 // true = bounce back and forth; false = one-way
-      startDirection = 'left_to_right'  // 'left_to_right' or 'right_to_left'
+      startDirection = 'left_to_right', // 'left_to_right' or 'right_to_left'
+      targetTotalFrames = null          // If set, conforms framesPerPass to hit this total
     } = options;
 
     const w = this.state.width;
     const h = this.state.height;
     const frameDurationMs = this.state.defaultDurationMs;
     const newFrames = [];
+
+    // If targetTotalFrames specified, conform framesPerPass
+    if (targetTotalFrames && targetTotalFrames > 0) {
+      const passesPerRep = roundTrip ? 2 : 1;
+      framesPerPass = Math.max(2, Math.floor(targetTotalFrames / (Math.max(1, repetitions) * passesPerRep)));
+    }
 
     const effectiveTail = (shape === 'fading_line' || shape === 'fading_chevron') ? tailLength : 0;
     const chevronOffset = (shape === 'chevron' || shape === 'fading_chevron') ? Math.max(1, Math.round((h - 1) / 2)) : 0;
@@ -128,19 +136,17 @@ export class Generators {
       maxX = typeof rightEndMode === 'number' ? rightEndMode : (w - 1);
     }
 
-    // Ensure minX < maxX
     if (minX >= maxX) {
       minX = 0;
       maxX = w - 1;
     }
 
-    // Assemble steps according to framesPerPass, repetitions, and startDirection
+    // Assemble steps
     const stepList = [];
     const count = Math.max(2, framesPerPass);
 
     for (let rep = 0; rep < repetitions; rep++) {
       if (roundTrip) {
-        // Full round-trip cycle of (count * 2) frames with uniform spacing and zero duplicate turnarounds
         const totalCycle = count * 2;
         const dir1 = (startDirection === 'left_to_right') ? 1 : -1;
         const startX = (dir1 === 1) ? minX : maxX;
@@ -149,11 +155,9 @@ export class Generators {
         for (let i = 0; i < totalCycle; i++) {
           let t, dir;
           if (i < count) {
-            // Forward leg: t moves smoothly from 0 up towards 1
             t = i / count;
             dir = dir1;
           } else {
-            // Return leg: t moves smoothly from 1 down towards 0
             t = (totalCycle - i) / count;
             dir = -dir1;
           }
@@ -161,7 +165,6 @@ export class Generators {
           stepList.push({ headX, dir });
         }
       } else {
-        // One-way sweep: exactly count frames per pass
         const dir = (startDirection === 'left_to_right') ? 1 : -1;
         const startX = (dir === 1) ? minX : maxX;
         const endX = (dir === 1) ? maxX : minX;
@@ -172,6 +175,14 @@ export class Generators {
           stepList.push({ headX, dir });
         }
       }
+    }
+
+    // If targetTotalFrames was explicitly set, pad or trim stepList to match exact count
+    if (targetTotalFrames && targetTotalFrames > 0 && stepList.length !== targetTotalFrames) {
+      while (stepList.length < targetTotalFrames) {
+        stepList.push(stepList[stepList.length % (roundTrip ? count * 2 : count)]);
+      }
+      stepList.length = targetTotalFrames;
     }
 
     const midY = (h - 1) / 2;
@@ -190,12 +201,12 @@ export class Generators {
         for (let x = 0; x < w; x++) {
           const dist = Math.abs(x - rowCenterX);
 
-          // 1. Core beam
+          // Core beam
           if (dist <= beamWidth / 2) {
             buffer[y * w + x] = headBrightness;
           }
 
-          // 2. Fading tail trailing behind motion
+          // Fading tail trailing behind motion
           if (effectiveTail > 0) {
             const tailDelta = (rowCenterX - x) * dir;
             if (tailDelta > 0 && tailDelta <= effectiveTail) {
@@ -218,38 +229,41 @@ export class Generators {
   }
 
   /**
-   * Generates an Audio Spectrum / Equalizer simulation
+   * Generates an Audio Spectrum / Equalizer simulation.
+   * Dynamically adapts band counts and vertical bar heights to any matrix W x H.
    */
   generateEqualizer(options = {}) {
     const {
       style = 'solid',      // 'solid', 'peak_dots', 'waveform'
-      bands = 16,           // 8, 16, 20, 40
-      numFrames = 40
+      bands = 16,           // Requested frequency bands
+      numFrames = 48,
+      targetTotalFrames = null
     } = options;
 
     const w = this.state.width;
     const h = this.state.height;
-    const frameDurationMs = options.fps ? Math.round(1000 / options.fps) : this.state.defaultDurationMs;
+    const frameDurationMs = this.state.defaultDurationMs;
+    const totalFrames = targetTotalFrames || numFrames;
     const newFrames = [];
-    const colPerBand = Math.ceil(w / bands);
 
-    // Track simulated peak dots per band
-    const peakPositions = new Float32Array(bands);
+    // Constrain bands to width
+    const actualBands = Math.max(2, Math.min(bands, w));
+    const colPerBand = Math.max(1, Math.floor(w / actualBands));
 
-    for (let f = 0; f < numFrames; f++) {
+    const peakPositions = new Float32Array(actualBands);
+
+    for (let f = 0; f < totalFrames; f++) {
       const buffer = new Uint8Array(w * h);
       const t = f * 0.35;
 
-      for (let b = 0; b < bands; b++) {
-        // Pseudo-random audio height wave
+      for (let b = 0; b < actualBands; b++) {
         const rawHeight = (Math.sin(t + b * 0.85) * 0.45 + 0.5) * (Math.cos(t * 1.3 - b * 0.4) * 0.35 + 0.65);
         const level = rawHeight * h;
 
-        // Update peak dot with gravity
         if (level > peakPositions[b]) {
           peakPositions[b] = level;
         } else {
-          peakPositions[b] = Math.max(0, peakPositions[b] - 0.25);
+          peakPositions[b] = Math.max(0, peakPositions[b] - (h / 12));
         }
 
         for (let c = 0; c < colPerBand; c++) {
@@ -267,7 +281,6 @@ export class Generators {
                 buffer[y * w + col] = Math.round(255 * frac);
               }
             } else if (style === 'peak_dots') {
-              // Bar + floating peak dot
               if (rowFromBottom < Math.floor(level)) {
                 buffer[y * w + col] = 180;
               }
@@ -276,7 +289,6 @@ export class Generators {
                 buffer[y * w + col] = 255;
               }
             } else if (style === 'waveform') {
-              // Symmetrical soundwave from middle row
               const midRow = (h - 1) / 2;
               const distFromMid = Math.abs(y - midRow);
               if (distFromMid <= level / 2) {
@@ -298,27 +310,29 @@ export class Generators {
   }
 
   /**
-   * Generates Robot Eye Expression sequences
+   * Generates Robot Eye Expression sequences.
+   * Strictly frame-quantized to project FPS and parameterized for arbitrary W x H.
    */
   generateRobotEyes(options = {}) {
     const {
       expression = 'blink',  // 'blink', 'wink_left', 'wink_right', 'squint', 'scan', 'shock'
       style = 'block',       // 'block', 'slit', 'brackets'
       eyeWidth = 10,
-      holdDurationMs = 1200,
-      fps = 24
+      targetTotalFrames = null,
+      holdFrames = null,
+      holdDurationMs = 1200
     } = typeof options === 'string' ? { expression: options } : options;
 
     const w = this.state.width;
     const h = this.state.height;
+    const frameDurationMs = this.state.defaultDurationMs;
     const newFrames = [];
 
     // Constrain eye width so two eyes fit with at least 1-2px center gap
-    const maxEyeW = Math.max(1, Math.floor((w - 1) / 2));
+    const maxEyeW = Math.max(1, Math.floor((w - 2) / 2));
     const actualEyeW = Math.max(1, Math.min(eyeWidth, maxEyeW));
 
     // Calculate left and right eye boundaries
-    // Split matrix into left half (0..wHalf-1) and right half (w-wHalf..w-1)
     const wHalf = Math.floor(w / 2);
     const outerMargin = Math.max(0, Math.floor((wHalf - actualEyeW) / 2));
 
@@ -328,8 +342,8 @@ export class Generators {
     const rightEyeEnd = (w - 1) - outerMargin;
     const rightEyeStart = rightEyeEnd - actualEyeW + 1;
 
-    // Adaptive midpoint for vertical eyelid dynamics
-    const midY = Math.floor(h / 2);
+    // Adaptive vertical eyelid rows
+    const midY = Math.floor((h - 1) / 2);
 
     const makeEyeFrame = (eyeLState, eyeRState, eyeLOffset = 0, eyeROffset = 0) => {
       const buf = new Uint8Array(w * h);
@@ -347,14 +361,18 @@ export class Generators {
                 const isBorder = (x === left || x === right || y === 0 || y === h - 1);
                 if (isBorder) buf[y * w + x] = 255;
               } else if (style === 'slit') {
-                if (y === midY) buf[y * w + x] = 255;
+                if (y === midY || (h % 2 === 0 && y === midY + 1)) buf[y * w + x] = 255;
               } else {
                 buf[y * w + x] = 255; // solid block
               }
             } else if (eyeState === 'half') {
-              if (y >= midY) buf[y * w + x] = 210;
+              // Eyelid closes top half of matrix
+              const isTopHalf = y < Math.ceil(h / 2);
+              if (!isTopHalf) {
+                buf[y * w + x] = 210;
+              }
             } else if (eyeState === 'slit') {
-              if (y === midY) buf[y * w + x] = 255;
+              if (y === midY || (h % 2 === 0 && y === midY + 1)) buf[y * w + x] = 255;
             } else if (eyeState === 'closed') {
               buf[y * w + x] = 0;
             }
@@ -367,136 +385,213 @@ export class Generators {
       return buf;
     };
 
+    // Determine target total frame count (uniform timebase)
+    let totalFrames = targetTotalFrames;
+    if (!totalFrames || totalFrames <= 0) {
+      if (holdFrames && holdFrames > 0) {
+        totalFrames = Math.max(12, holdFrames + 12);
+      } else {
+        const computedHold = Math.round(holdDurationMs / frameDurationMs);
+        totalFrames = Math.max(24, computedHold + 12);
+      }
+    }
+
+    const pushN = (count, eyeL, eyeR, offL = 0, offR = 0, prefix = 'eye') => {
+      const c = Math.max(0, Math.round(count));
+      for (let i = 0; i < c; i++) {
+        newFrames.push({
+          id: `${prefix}_${i}_` + Math.random().toString(36).substring(2, 6),
+          durationMs: frameDurationMs,
+          data: makeEyeFrame(eyeL, eyeR, offL, offR)
+        });
+      }
+    };
+
     if (expression === 'blink') {
-      newFrames.push({ id: 'eye_open1', durationMs: holdDurationMs, data: makeEyeFrame('open', 'open') });
-      newFrames.push({ id: 'eye_squint1', durationMs: 45, data: makeEyeFrame('half', 'half') });
-      newFrames.push({ id: 'eye_slit1', durationMs: 35, data: makeEyeFrame('slit', 'slit') });
-      newFrames.push({ id: 'eye_closed', durationMs: 70, data: makeEyeFrame('closed', 'closed') });
-      newFrames.push({ id: 'eye_slit2', durationMs: 35, data: makeEyeFrame('slit', 'slit') });
-      newFrames.push({ id: 'eye_squint2', durationMs: 45, data: makeEyeFrame('half', 'half') });
-      newFrames.push({ id: 'eye_open2', durationMs: Math.round(holdDurationMs * 0.6), data: makeEyeFrame('open', 'open') });
-    } else if (expression === 'wink_left') {
-      newFrames.push({ id: 'wink_open', durationMs: holdDurationMs, data: makeEyeFrame('open', 'open') });
-      newFrames.push({ id: 'wink_down', durationMs: 50, data: makeEyeFrame('slit', 'open') });
-      newFrames.push({ id: 'wink_shut', durationMs: 350, data: makeEyeFrame('closed', 'open') });
-      newFrames.push({ id: 'wink_up', durationMs: 50, data: makeEyeFrame('slit', 'open') });
-      newFrames.push({ id: 'wink_rest', durationMs: 600, data: makeEyeFrame('open', 'open') });
-    } else if (expression === 'wink_right') {
-      newFrames.push({ id: 'wink_open', durationMs: holdDurationMs, data: makeEyeFrame('open', 'open') });
-      newFrames.push({ id: 'wink_down', durationMs: 50, data: makeEyeFrame('open', 'slit') });
-      newFrames.push({ id: 'wink_shut', durationMs: 350, data: makeEyeFrame('open', 'closed') });
-      newFrames.push({ id: 'wink_up', durationMs: 50, data: makeEyeFrame('open', 'slit') });
-      newFrames.push({ id: 'wink_rest', durationMs: 600, data: makeEyeFrame('open', 'open') });
+      // Natural blink sequence: open -> half -> slit -> shut -> slit -> half -> open
+      const transitionFrames = (totalFrames <= 16) ? 4 : 6;
+      const openFrames = Math.max(2, totalFrames - transitionFrames);
+      const openLead = Math.floor(openFrames * 0.6);
+      const openTail = openFrames - openLead;
+
+      pushN(openLead, 'open', 'open', 0, 0, 'open1');
+      if (transitionFrames === 4) {
+        pushN(1, 'half', 'half', 0, 0, 'half_dn');
+        pushN(2, 'closed', 'closed', 0, 0, 'shut');
+        pushN(1, 'half', 'half', 0, 0, 'half_up');
+      } else {
+        pushN(1, 'half', 'half', 0, 0, 'half_dn');
+        pushN(1, 'slit', 'slit', 0, 0, 'slit_dn');
+        pushN(2, 'closed', 'closed', 0, 0, 'shut');
+        pushN(1, 'slit', 'slit', 0, 0, 'slit_up');
+        pushN(1, 'half', 'half', 0, 0, 'half_up');
+      }
+      pushN(openTail, 'open', 'open', 0, 0, 'open2');
+    } else if (expression === 'wink_left' || expression === 'wink_right') {
+      const isLeft = (expression === 'wink_left');
+      const winkShutFrames = Math.max(2, Math.round(totalFrames * 0.25));
+      const trans = 2; // 1 slit down, 1 slit up
+      const openFrames = Math.max(2, totalFrames - winkShutFrames - trans);
+      const openLead = Math.floor(openFrames * 0.6);
+      const openTail = openFrames - openLead;
+
+      pushN(openLead, 'open', 'open', 0, 0, 'open_lead');
+      pushN(1, isLeft ? 'slit' : 'open', isLeft ? 'open' : 'slit', 0, 0, 'wink_dn');
+      pushN(winkShutFrames, isLeft ? 'closed' : 'open', isLeft ? 'open' : 'closed', 0, 0, 'wink_hold');
+      pushN(1, isLeft ? 'slit' : 'open', isLeft ? 'open' : 'slit', 0, 0, 'wink_up');
+      pushN(openTail, 'open', 'open', 0, 0, 'open_tail');
     } else if (expression === 'squint') {
-      newFrames.push({ id: 'squint_open', durationMs: 600, data: makeEyeFrame('open', 'open') });
-      newFrames.push({ id: 'squint_hold', durationMs: holdDurationMs, data: makeEyeFrame('slit', 'slit') });
-      newFrames.push({ id: 'squint_end', durationMs: 600, data: makeEyeFrame('open', 'open') });
+      const open1 = Math.max(1, Math.floor(totalFrames * 0.25));
+      const squintHold = Math.max(2, Math.floor(totalFrames * 0.5));
+      const open2 = Math.max(1, totalFrames - open1 - squintHold);
+
+      pushN(open1, 'open', 'open', 0, 0, 'open1');
+      pushN(squintHold, 'slit', 'slit', 0, 0, 'squint');
+      pushN(open2, 'open', 'open', 0, 0, 'open2');
     } else if (expression === 'scan') {
-      // Proportional scan offset so eyes stay comfortably within view
       const maxShift = Math.max(1, Math.min(4, Math.round(actualEyeW * 0.35)));
       const scanShift = outerMargin > 0 ? Math.max(1, Math.min(maxShift, outerMargin)) : 1;
 
-      newFrames.push({ id: 'scan_c1', durationMs: 500, data: makeEyeFrame('open', 'open', 0, 0) });
-      newFrames.push({ id: 'scan_l', durationMs: 700, data: makeEyeFrame('open', 'open', -scanShift, -scanShift) });
-      newFrames.push({ id: 'scan_c2', durationMs: 350, data: makeEyeFrame('open', 'open', 0, 0) });
-      newFrames.push({ id: 'scan_r', durationMs: 700, data: makeEyeFrame('open', 'open', scanShift, scanShift) });
-      newFrames.push({ id: 'scan_c3', durationMs: 350, data: makeEyeFrame('open', 'open', 0, 0) });
+      const c1 = Math.max(1, Math.floor(totalFrames * 0.15));
+      const left = Math.max(2, Math.floor(totalFrames * 0.3));
+      const c2 = Math.max(1, Math.floor(totalFrames * 0.1));
+      const right = Math.max(2, Math.floor(totalFrames * 0.3));
+      const c3 = Math.max(1, totalFrames - c1 - left - c2 - right);
+
+      pushN(c1, 'open', 'open', 0, 0, 'scan_c1');
+      pushN(left, 'open', 'open', -scanShift, -scanShift, 'scan_l');
+      pushN(c2, 'open', 'open', 0, 0, 'scan_c2');
+      pushN(right, 'open', 'open', scanShift, scanShift, 'scan_r');
+      pushN(c3, 'open', 'open', 0, 0, 'scan_c3');
     } else if (expression === 'shock') {
-      newFrames.push({ id: 'shock_norm', durationMs: 600, data: makeEyeFrame('half', 'half') });
-      newFrames.push({ id: 'shock_wide', durationMs: holdDurationMs, data: makeEyeFrame('open', 'open') });
+      const norm = Math.max(1, Math.floor(totalFrames * 0.3));
+      const wide = Math.max(1, totalFrames - norm);
+
+      pushN(norm, 'half', 'half', 0, 0, 'shock_norm');
+      pushN(wide, 'open', 'open', 0, 0, 'shock_wide');
+    }
+
+    // Ensure exact conform to totalFrames
+    while (newFrames.length < totalFrames) {
+      newFrames.push({
+        id: 'eye_pad_' + Math.random().toString(36).substring(2, 6),
+        durationMs: frameDurationMs,
+        data: makeEyeFrame('open', 'open')
+      });
+    }
+    if (newFrames.length > totalFrames) {
+      newFrames.length = totalFrames;
     }
 
     this._applyGeneratedFrames(newFrames, `robot_eyes_${expression}`, options.insertion);
   }
 
   /**
-   * Generates a Strobe or Pulse animation
+   * Generates a Strobe or Pulse animation.
+   * Quantized to exact project FPS frames and adaptable to any matrix size.
    */
   generatePulse(options = {}) {
-    const {
+    let {
       pattern = 'breathe',  // 'breathe', 'heartbeat', 'strobe', 'curtain'
       numPulses = 2,
-      framesPerCycle = 20
+      framesPerCycle = 24,
+      targetTotalFrames = null
     } = typeof options === 'number' ? { numPulses: options } : options;
 
     const w = this.state.width;
     const h = this.state.height;
+    const frameDurationMs = this.state.defaultDurationMs;
     const newFrames = [];
-    const frameDurationMs = options.fps ? Math.round(1000 / options.fps) : this.state.defaultDurationMs;
+
+    const totalFrames = targetTotalFrames || (numPulses * framesPerCycle);
+    const safePulses = Math.max(1, numPulses);
+    const framesPerP = Math.max(4, Math.floor(totalFrames / safePulses));
 
     if (pattern === 'heartbeat') {
-      // Lub-dub double pulse
-      for (let p = 0; p < numPulses; p++) {
-        // First thump
-        for (let i = 0; i < 6; i++) {
-          const b = Math.round(255 * Math.sin((i / 6) * Math.PI));
+      // Quantized double-thump heartbeat
+      for (let p = 0; p < safePulses; p++) {
+        const thump1Frames = Math.max(1, Math.round(framesPerP * 0.18));
+        const pause1Frames = Math.max(1, Math.round(framesPerP * 0.12));
+        const thump2Frames = Math.max(2, Math.round(framesPerP * 0.28));
+        const pause2Frames = Math.max(1, framesPerP - thump1Frames - pause1Frames - thump2Frames);
+
+        // Thump 1
+        for (let i = 0; i < thump1Frames; i++) {
+          const b = Math.round(220 * Math.sin(((i + 1) / (thump1Frames + 1)) * Math.PI));
           const buf = new Uint8Array(w * h);
           buf.fill(b);
-          newFrames.push({ id: 'hb1_' + Math.random().toString(36).substring(2, 7), durationMs: 35, data: buf });
+          newFrames.push({ id: 'hb1_' + Math.random().toString(36).substring(2, 6), durationMs: frameDurationMs, data: buf });
         }
-        // Small pause
-        const pause1 = new Uint8Array(w * h);
-        newFrames.push({ id: 'pause1', durationMs: 60, data: pause1 });
-        // Second stronger thump
-        for (let i = 0; i < 8; i++) {
-          const b = Math.round(255 * Math.sin((i / 8) * Math.PI));
+        // Pause 1
+        for (let i = 0; i < pause1Frames; i++) {
+          newFrames.push({ id: 'p1_' + i, durationMs: frameDurationMs, data: new Uint8Array(w * h) });
+        }
+        // Thump 2 (stronger)
+        for (let i = 0; i < thump2Frames; i++) {
+          const b = Math.round(255 * Math.sin(((i + 1) / (thump2Frames + 1)) * Math.PI));
           const buf = new Uint8Array(w * h);
           buf.fill(b);
-          newFrames.push({ id: 'hb2_' + Math.random().toString(36).substring(2, 7), durationMs: 35, data: buf });
+          newFrames.push({ id: 'hb2_' + Math.random().toString(36).substring(2, 6), durationMs: frameDurationMs, data: buf });
         }
-        // Long pause
-        const pause2 = new Uint8Array(w * h);
-        newFrames.push({ id: 'pause2', durationMs: 450, data: pause2 });
+        // Pause 2
+        for (let i = 0; i < pause2Frames; i++) {
+          newFrames.push({ id: 'p2_' + i, durationMs: frameDurationMs, data: new Uint8Array(w * h) });
+        }
       }
     } else if (pattern === 'strobe') {
-      // Rapid strobe flash
-      for (let p = 0; p < numPulses * 3; p++) {
-        const onBuf = new Uint8Array(w * h);
-        onBuf.fill(255);
-        newFrames.push({ id: 'strobe_on', durationMs: 40, data: onBuf });
-
-        const offBuf = new Uint8Array(w * h);
-        newFrames.push({ id: 'strobe_off', durationMs: 60, data: offBuf });
+      const toggleInterval = Math.max(1, Math.floor(totalFrames / (safePulses * 6)));
+      let isOn = true;
+      let counter = 0;
+      for (let f = 0; f < totalFrames; f++) {
+        const buf = new Uint8Array(w * h);
+        if (isOn) buf.fill(255);
+        newFrames.push({ id: 'str_' + f, durationMs: frameDurationMs, data: buf });
+        counter++;
+        if (counter >= toggleInterval) {
+          counter = 0;
+          isOn = !isOn;
+        }
       }
     } else if (pattern === 'curtain') {
-      // Center-out curtain wipe
       const midX = (w - 1) / 2;
-      const steps = Math.ceil(w / 2);
-      for (let s = 0; s <= steps; s++) {
+      const maxDist = Math.ceil(w / 2);
+
+      for (let f = 0; f < totalFrames; f++) {
+        // Ping-pong triangular phase [0 -> 1 -> 0]
+        const phase = (f % framesPerP) / (framesPerP - 1);
+        const curRadius = (phase <= 0.5 ? phase * 2 : (1 - phase) * 2) * maxDist;
         const buf = new Uint8Array(w * h);
+
         for (let x = 0; x < w; x++) {
-          if (Math.abs(x - midX) <= s) {
-            for (let y = 0; y < h; y++) buf[y * w + x] = 255;
+          if (Math.abs(x - midX) <= curRadius) {
+            for (let y = 0; y < h; y++) {
+              buf[y * w + x] = 255;
+            }
           }
         }
-        newFrames.push({ id: 'curtain_' + s, durationMs: frameDurationMs, data: buf });
-      }
-      for (let s = steps; s >= 0; s--) {
-        const buf = new Uint8Array(w * h);
-        for (let x = 0; x < w; x++) {
-          if (Math.abs(x - midX) <= s) {
-            for (let y = 0; y < h; y++) buf[y * w + x] = 255;
-          }
-        }
-        newFrames.push({ id: 'curtain_rev_' + s, durationMs: frameDurationMs, data: buf });
+        newFrames.push({ id: 'curtain_' + f, durationMs: frameDurationMs, data: buf });
       }
     } else {
       // Standard smooth sinusoidal breathing
-      const stepsPerPulse = Math.max(4, framesPerCycle);
-      for (let p = 0; p < numPulses; p++) {
-        for (let s = 0; s < stepsPerPulse; s++) {
-          const rad = (s / stepsPerPulse) * Math.PI;
-          const brightness = Math.round(255 * Math.sin(rad));
-          const buf = new Uint8Array(w * h);
-          buf.fill(brightness);
+      for (let f = 0; f < totalFrames; f++) {
+        const rad = ((f % framesPerP) / framesPerP) * Math.PI * 2;
+        // Cosine inverted for natural breath cycle 0 -> 255 -> 0
+        const brightness = Math.round(255 * (0.5 - 0.5 * Math.cos(rad)));
+        const buf = new Uint8Array(w * h);
+        buf.fill(brightness);
 
-          newFrames.push({
-            id: 'pulse_' + Math.random().toString(36).substring(2, 9),
-            durationMs: frameDurationMs,
-            data: buf
-          });
-        }
+        newFrames.push({
+          id: 'pulse_' + Math.random().toString(36).substring(2, 6),
+          durationMs: frameDurationMs,
+          data: buf
+        });
       }
+    }
+
+    // Exact conform
+    if (newFrames.length > totalFrames) newFrames.length = totalFrames;
+    while (newFrames.length < totalFrames) {
+      newFrames.push({ id: 'pad_' + newFrames.length, durationMs: frameDurationMs, data: new Uint8Array(w * h) });
     }
 
     this._applyGeneratedFrames(newFrames, `visor_${pattern}`, options.insertion);
@@ -505,8 +600,7 @@ export class Generators {
   /**
    * Applies generated frames according to the insertion/compositing options:
    * mode: 'replace' | 'overlay' | 'append'
-   * blendMode: 'add' (additive flare) | 'max' (lighten) | 'overwrite' | 'screen'
-   * durationSync: 'loop' (polyrhythmic seamless loop) | 'pad' (stop when shorter finishes)
+   * blendMode: 'add' (additive flare) | 'max' (lighten) | 'overwrite' | 'screen' | 'stencil' (mask) | 'subtract'
    */
   _applyGeneratedFrames(newFrames, animationName, insertionOptions = {}) {
     if (!newFrames || newFrames.length === 0) return;
@@ -514,8 +608,7 @@ export class Generators {
 
     const {
       mode = 'replace',
-      blendMode = 'add',
-      durationSync = 'loop'
+      blendMode = 'add'
     } = insertionOptions;
 
     const w = this.state.width;
@@ -550,35 +643,23 @@ export class Generators {
         return;
       }
 
-      const lenE = existing.length;
-      const lenI = newFrames.length;
-
-      // Calculate composite length (LCM or max)
-      function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
-      function lcm(a, b) { return (a * b) / gcd(a, b); }
-
-      let compositeLen = Math.max(lenE, lenI);
-      if (durationSync === 'loop') {
-        const computedLcm = lcm(lenE, lenI);
-        if (computedLcm <= 120 && computedLcm >= compositeLen) {
-          compositeLen = computedLcm;
-        }
-      }
-
+      // Conforming rule: In overlay mode, composite length strictly equals the existing timeline length!
+      const compositeLen = existing.length;
+      const incomingLen = newFrames.length;
       const compositedFrames = [];
 
       for (let k = 0; k < compositeLen; k++) {
-        const frameE = (durationSync === 'loop' || k < lenE) ? existing[k % lenE] : null;
-        const frameI = (durationSync === 'loop' || k < lenI) ? newFrames[k % lenI] : null;
+        const frameE = existing[k];
+        const frameI = newFrames[k % incomingLen];
 
         const buffer = new Uint8Array(totalPixels);
 
         for (let p = 0; p < totalPixels; p++) {
-          const valE = frameE ? frameE.data[p] : 0;
-          const valI = frameI ? frameI.data[p] : 0;
+          const valE = frameE.data[p] || 0;
+          const valI = (frameI && frameI.data[p] !== undefined) ? frameI.data[p] : 0;
 
           if (blendMode === 'add') {
-            // Additive flare: superimposition with bright flare intersection!
+            // Additive flare: superimposition with bright flare intersection
             buffer[p] = Math.min(255, valE + valI);
           } else if (blendMode === 'max') {
             // Maximum / Lighten
@@ -587,15 +668,20 @@ export class Generators {
             // Non-zero of incoming replaces existing
             buffer[p] = valI > 0 ? valI : valE;
           } else if (blendMode === 'screen') {
+            // Soft filmic highlight
             buffer[p] = Math.round(255 - ((255 - valE) * (255 - valI)) / 255);
+          } else if (blendMode === 'stencil') {
+            // Mask / Stencil: Existing layer only shines through where incoming is lit
+            buffer[p] = Math.round((valE * valI) / 255);
+          } else if (blendMode === 'subtract') {
+            // Subtract / Cutout
+            buffer[p] = Math.max(0, valE - valI);
           }
         }
 
-        const dur = (frameE ? frameE.durationMs : 0) || (frameI ? frameI.durationMs : 0) || this.state.defaultDurationMs;
-
         compositedFrames.push({
           id: 'mix_' + Math.random().toString(36).substring(2, 9),
-          durationMs: dur,
+          durationMs: frameE.durationMs || this.state.defaultDurationMs,
           data: buffer
         });
       }

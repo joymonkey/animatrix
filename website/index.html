@@ -532,10 +532,10 @@
                 </div>
                 <div class="form-group">
                   <div class="slider-val-label">
-                    <span>Open Hold Duration</span>
-                    <span class="slider-val-badge" id="eyeHoldVal">1200 ms</span>
+                    <span>Expression Cycle Frames</span>
+                    <span class="slider-val-badge" id="eyeFramesVal">48 frames</span>
                   </div>
-                  <input type="range" id="eyeHoldInput" min="400" max="2500" step="100" value="1200" class="form-input" style="padding: 2px;">
+                  <input type="range" id="eyeFramesInput" min="12" max="96" step="6" value="48" class="form-input" style="padding: 2px;">
                 </div>
               </div>
 
@@ -690,22 +690,33 @@
               </div>
 
               <!-- Overlay Options -->
-              <div id="presetOverlayOptions" class="overlay-sub-options" style="display: none;">
-                <div class="form-group" style="flex: 1;">
-                  <label style="font-size: 10px;">Blend Mode</label>
-                  <select id="presetBlendModeSelect" class="form-select" style="padding: 4px 8px; font-size: 11px;">
-                    <option value="add">Additive Flare (Intersection Glows White-Hot!)</option>
-                    <option value="max">Maximum (Clean Superposition)</option>
-                    <option value="overwrite">Overwrite Non-Zero</option>
-                    <option value="screen">Screen (Soft Highlight)</option>
-                  </select>
+              <div id="presetOverlayOptions" class="overlay-sub-options" style="display: none; flex-direction: column; gap: 8px;">
+                <div style="display: flex; gap: 8px;">
+                  <div class="form-group" style="flex: 1;">
+                    <label style="font-size: 10px;">Blend Mode</label>
+                    <select id="presetBlendModeSelect" class="form-select" style="padding: 4px 8px; font-size: 11px;">
+                      <option value="add">Additive Flare (Intersection Glows White-Hot!)</option>
+                      <option value="max">Maximum (Clean Superposition)</option>
+                      <option value="stencil">Mask / Stencil (Cutout - background only shines through mask)</option>
+                      <option value="overwrite">Overwrite Non-Zero</option>
+                      <option value="screen">Screen (Soft Highlight)</option>
+                      <option value="subtract">Subtract (Cutout / Shadow)</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="flex: 1;">
+                    <label style="font-size: 10px;">Harmonic Speed Division</label>
+                    <select id="presetHarmonicDivisionSelect" class="form-select" style="padding: 4px 8px; font-size: 11px;">
+                      <option value="1">1&times; (Match Timeline Length)</option>
+                      <option value="2">2&times; (Double Speed / 2 Cycles)</option>
+                      <option value="3">3&times; (Triple Speed / 3 Cycles)</option>
+                      <option value="4">4&times; (Quad Speed / 4 Cycles)</option>
+                    </select>
+                  </div>
                 </div>
-                <div class="form-group" style="flex: 1;">
-                  <label style="font-size: 10px;">Duration Sync</label>
-                  <select id="presetDurationSyncSelect" class="form-select" style="padding: 4px 8px; font-size: 11px;">
-                    <option value="loop">Loop Shorter to Match (Seamless Polyrhythm)</option>
-                    <option value="pad">Hold / Stop Shorter</option>
-                  </select>
+                <!-- Visual Sync Alignment Bar -->
+                <div id="presetSyncBadge" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 10px; font-size: 10px; display: flex; align-items: center; justify-content: space-between;">
+                  <span id="presetSyncStatusText" style="color: var(--text-muted);">Active Timeline: <strong style="color: var(--accent-red);" id="presetActiveTimelineLen">48</strong> frames</span>
+                  <span id="presetSyncLoopText" style="color: #4ade80; font-weight: 600;">✓ Seamless 1:1 Loop</span>
                 </div>
               </div>
             </div>
@@ -773,8 +784,7 @@
           <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px;">
             <label style="margin: 0; font-size: 11px;">Export Format:</label>
             <select id="exportEncodingSelect" class="form-select" style="padding: 3px 8px; font-size: 11px;">
-              <option value="hex_stream">Compact JSON (Optimized for ESP32)</option>
-              <option value="raw_array">"Human After All" Friendly JSON</option>
+              <option value="json_v2" selected>animatrix-v2 JSON (Flat Hex Stream)</option>
               <option value="cpp_progmem">PROGMEM C++ Table (.h)</option>
             </select>
           </div>
