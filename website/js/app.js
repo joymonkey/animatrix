@@ -14,12 +14,13 @@ import { CppExporter } from './io/CppExporter.js?v=2.7';
 import { EspUploader } from './io/EspUploader.js?v=2.7';
 import { TimelineView } from './components/TimelineView.js?v=2.7';
 import { PresetLibrary } from './presets/DefaultAnimations.js?v=2.7';
+import { PresetThumbnails } from './ui/PresetThumbnails.js?v=3.0';
 
 // Dynamic LED Phosphor / Theme Palette Management
 export const THEME_PALETTES = {
-  red:   { led: '#ff1a00', glow: 'rgba(255, 26, 0, 0.45)', dim: '#3a0808', badge: '#ff4433' },
+  red: { led: '#ff1a00', glow: 'rgba(255, 26, 0, 0.45)', dim: '#3a0808', badge: '#ff4433' },
   green: { led: '#00e030', glow: 'rgba(0, 224, 48, 0.45)', dim: '#083a10', badge: '#00ff44' },
-  blue:  { led: '#0077ff', glow: 'rgba(0, 119, 255, 0.45)', dim: '#08183a', badge: '#3399ff' },
+  blue: { led: '#0077ff', glow: 'rgba(0, 119, 255, 0.45)', dim: '#08183a', badge: '#3399ff' },
   amber: { led: '#ffaa00', glow: 'rgba(255, 170, 0, 0.45)', dim: '#3a2408', badge: '#ffbb22' },
   white: { led: '#e0ebff', glow: 'rgba(224, 235, 255, 0.45)', dim: '#202430', badge: '#ffffff' }
 };
@@ -193,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
           'HARDER BETTER FASTER',
           'ROBOT ROCK',
           'TECHNO LOGIC',
-          'DAFT PUNK VISOR',
+          'ANIMATRIX',
           'DISCOVERY 2001'
         ];
         const text = tracks[Math.floor(Math.random() * tracks.length)];
@@ -599,8 +600,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!modal) return;
     const closeBtn = modal.querySelector('.modal-close-btn');
 
-    const open = () => modal.classList.add('active');
-    const close = () => modal.classList.remove('active');
+    const open = () => {
+      modal.classList.add('active');
+      if (modalId === 'presetModal') {
+        PresetThumbnails.start();
+      }
+    };
+    const close = () => {
+      modal.classList.remove('active');
+      if (modalId === 'presetModal') {
+        PresetThumbnails.stop();
+      }
+    };
 
     if (openBtn) openBtn.addEventListener('click', open);
     if (closeBtn) closeBtn.addEventListener('click', close);
@@ -614,6 +625,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const resizeModal = setupModal('resizeModal', openResizeModalBtn);
   const exportModal = setupModal('exportModal', openExportModalBtn);
   if (openEspModalBtn) setupModal('espModal', openEspModalBtn);
+
+  // Initialize live preset thumbnail preview canvases
+  PresetThumbnails.init();
 
   if (openPresetModalBtn) {
     openPresetModalBtn.addEventListener('click', () => {
@@ -1167,7 +1181,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // 11. Keyboard Shortcuts
   window.addEventListener('keydown', (e) => {
     // Ignore if inside an input or textarea
-    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+      if (e.key === 'Escape') document.activeElement.blur();
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      [presetModal, resizeModal, exportModal].forEach(m => m && m.close && m.close());
+      return;
+    }
 
     if (e.code === 'Space') {
       e.preventDefault();

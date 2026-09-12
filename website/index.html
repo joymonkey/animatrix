@@ -1,21 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Animatrix // LED Matrix Studio</title>
-  <meta name="description" content="Professional animation creator and sequencer for custom LED matrices (40x3 and multi-resolution) powered by ESP32-S3 and other microcontrollers.">
-  
+  <meta name="description"
+    content="Professional animation creator and sequencer for custom LED matrices (40x3 and multi-resolution) powered by ESP32-S3 and other microcontrollers.">
+
   <!-- HTTP Cache Prevention for Development -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  
+
   <!-- CSS Stylesheets -->
   <link rel="stylesheet" href="css/style.css?v=3.0">
   <link rel="stylesheet" href="css/matrix.css?v=2.2">
   <link rel="stylesheet" href="css/timeline.css?v=2.2">
 </head>
+
 <body>
 
   <!-- Top Application Header -->
@@ -39,10 +42,14 @@
     </div>
 
     <div class="header-center-info">
-      <button class="info-pill btn-subtle" id="openResizeModalBtn" title="Click to configure matrix size, color & properties">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;">
+      <button class="info-pill btn-subtle" id="openResizeModalBtn"
+        title="Click to configure matrix size, color & properties">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          style="flex-shrink: 0;">
           <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+          </path>
         </svg>
         <span id="matrixDimensionLabel">40 × 3 (120 LEDs)</span>
       </button>
@@ -52,12 +59,15 @@
     <div class="header-actions">
       <button class="btn btn-subtle" id="openPresetModalBtn" title="Load preset animations (Cylon, Marquee, Eyes)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          <polygon
+            points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+          </polygon>
         </svg>
         <span>Presets & Generators</span>
       </button>
 
-      <button class="btn btn-primary" id="openExportModalBtn" title="Export, import, or push animation directly to ESP32 helmet">
+      <button class="btn btn-primary" id="openExportModalBtn"
+        title="Export, import, or push animation directly to ESP32 helmet">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
           <polyline points="7 10 12 15 17 10"></polyline>
@@ -70,7 +80,7 @@
 
   <!-- Workspace: Tools Sidebar & Canvas -->
   <main class="workspace-main">
-    
+
     <!-- Left Drawing Tools Rail -->
     <aside class="tools-sidebar">
       <div class="tool-group">
@@ -128,7 +138,8 @@
       <!-- Photoshop-Style Foreground / Background PWM Swatch Widget -->
       <div class="swatch-widget" id="swatchWidget" title="Foreground & Background PWM Controls">
         <button class="swatch-swap-btn" id="swatchSwapBtn" type="button" title="Swap Foreground / Background (X)">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
             <path d="M7 10h14l-4-4"></path>
             <path d="M17 14H3l4 4"></path>
           </svg>
@@ -164,7 +175,7 @@
 
     <!-- Center Canvas Stage Viewport -->
     <div class="canvas-viewport">
-      
+
       <!-- Top Canvas Control Bar -->
       <div class="top-control-bar">
 
@@ -208,7 +219,7 @@
 
       <!-- Main Canvas Housing Area -->
       <div class="canvas-container-outer">
-        
+
         <!-- Helmet Visor Housing Bezel -->
         <div class="helmet-visor-frame">
           <!-- Visor Bezel Header: Prominent Animation Name & Quick Rename -->
@@ -255,7 +266,7 @@
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </button>
-          
+
           <div class="transform-divider"></div>
 
           <button class="transform-btn" id="flipHBtn" title="Flip Horizontally">
@@ -300,7 +311,7 @@
 
   <!-- Bottom Timeline Sequencer Dock -->
   <section class="timeline-dock">
-    
+
     <!-- Playback Control Bar -->
     <div class="timeline-control-bar">
       <div class="playback-buttons-group">
@@ -331,7 +342,8 @@
       <div class="control-bar-group">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary);">Speed:</span>
-          <input type="range" id="fpsSlider" min="1" max="60" value="24" style="width: 80px; accent-color: var(--led-red);">
+          <input type="range" id="fpsSlider" min="1" max="60" value="24"
+            style="width: 80px; accent-color: var(--led-red);">
           <span class="info-pill" id="fpsVal" style="padding: 2px 8px;">24 FPS</span>
         </div>
 
@@ -363,26 +375,92 @@
       </div>
       <div class="modal-body" style="padding: 16px 20px;">
         <div class="preset-studio-layout">
+
+          <!-- Timeline Mixing & Insertion Mode (Top Priority Control) -->
+          <div class="insertion-mode-section">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <label
+                style="font-weight: 600; font-size: 11px; color: #fff; display: flex; align-items: center; gap: 6px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                  <polyline points="2 17 12 22 22 17"></polyline>
+                  <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
+                Timeline Mixing Target:
+              </label>
+            </div>
+
+            <div class="insertion-mode-pills">
+              <label class="mode-pill active" data-pill-group="preset" data-mode="replace">
+                <input type="radio" name="presetInsertMode" value="replace" checked>
+                <span>Replace Timeline</span>
+              </label>
+              <label class="mode-pill" data-pill-group="preset" data-mode="overlay">
+                <input type="radio" name="presetInsertMode" value="overlay">
+                <span>Overlay / Mix on Top</span>
+              </label>
+              <label class="mode-pill" data-pill-group="preset" data-mode="append">
+                <input type="radio" name="presetInsertMode" value="append">
+                <span>Append to End</span>
+              </label>
+            </div>
+
+            <!-- Overlay Options -->
+            <div id="presetOverlayOptions" class="overlay-sub-options"
+              style="display: none; flex-direction: column; gap: 8px;">
+              <div style="display: flex; gap: 8px;">
+                <div class="form-group" style="flex: 1;">
+                  <label style="font-size: 10px;">Blend Mode</label>
+                  <select id="presetBlendModeSelect" class="form-select" style="padding: 4px 8px; font-size: 11px;">
+                    <option value="add">Additive Flare (Intersection Glows White-Hot!)</option>
+                    <option value="max">Maximum (Clean Superposition)</option>
+                    <option value="stencil">Mask / Stencil (Cutout - background only shines through mask)</option>
+                    <option value="overwrite">Overwrite Non-Zero</option>
+                    <option value="screen">Screen (Soft Highlight)</option>
+                    <option value="subtract">Subtract (Cutout / Shadow)</option>
+                  </select>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                  <label style="font-size: 10px;">Harmonic Speed Division</label>
+                  <select id="presetHarmonicDivisionSelect" class="form-select"
+                    style="padding: 4px 8px; font-size: 11px;">
+                    <option value="1">1&times; (Match Timeline Length)</option>
+                    <option value="2">2&times; (Double Speed / 2 Cycles)</option>
+                    <option value="3">3&times; (Triple Speed / 3 Cycles)</option>
+                    <option value="4">4&times; (Quad Speed / 4 Cycles)</option>
+                  </select>
+                </div>
+              </div>
+              <!-- Visual Sync Alignment Bar -->
+              <div id="presetSyncBadge"
+                style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 10px; font-size: 10px; display: flex; align-items: center; justify-content: space-between;">
+                <span id="presetSyncStatusText" style="color: var(--text-muted);">Active Timeline: <strong
+                    style="color: var(--accent-red);" id="presetActiveTimelineLen">48</strong> frames</span>
+                <span id="presetSyncLoopText" style="color: #4ade80; font-weight: 600;">✓ Seamless 1:1 Loop</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Top horizontal preset selector tabs -->
           <div class="preset-nav-bar">
             <button class="preset-nav-btn active" data-preset-tab="cylon">
-              <span class="preset-nav-icon">🚀</span>
+              <div class="preset-thumb-slot" data-thumb="cylon"></div>
               <span class="preset-nav-title">Cylon Sweep</span>
             </button>
             <button class="preset-nav-btn" data-preset-tab="robot_eyes">
-              <span class="preset-nav-icon">👁️</span>
+              <div class="preset-thumb-slot" data-thumb="robot_eyes"></div>
               <span class="preset-nav-title">Robotic Eyes</span>
             </button>
             <button class="preset-nav-btn" data-preset-tab="marquee">
-              <span class="preset-nav-icon">🔤</span>
+              <div class="preset-thumb-slot" data-thumb="marquee"></div>
               <span class="preset-nav-title">Text Marquee</span>
             </button>
             <button class="preset-nav-btn" data-preset-tab="equalizer">
-              <span class="preset-nav-icon">📊</span>
+              <div class="preset-thumb-slot" data-thumb="equalizer"></div>
               <span class="preset-nav-title">Audio EQ</span>
             </button>
             <button class="preset-nav-btn" data-preset-tab="pulse">
-              <span class="preset-nav-icon">💓</span>
+              <div class="preset-thumb-slot" data-thumb="pulse"></div>
               <span class="preset-nav-title">Visor Pulse</span>
             </button>
           </div>
@@ -390,70 +468,11 @@
           <!-- Configurator panels -->
           <div class="preset-config-panel">
 
-            <!-- Timeline Mixing & Insertion Mode (Top Priority Control) -->
-            <div class="insertion-mode-section">
-              <div style="display: flex; align-items: center; justify-content: space-between;">
-                <label style="font-weight: 600; font-size: 11px; color: #fff; display: flex; align-items: center; gap: 6px;">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                    <polyline points="2 17 12 22 22 17"></polyline>
-                    <polyline points="2 12 12 17 22 12"></polyline>
-                  </svg>
-                  Timeline Mixing Target:
-                </label>
-              </div>
-
-              <div class="insertion-mode-pills">
-                <label class="mode-pill active" data-pill-group="preset" data-mode="replace">
-                  <input type="radio" name="presetInsertMode" value="replace" checked>
-                  <span>Replace Timeline</span>
-                </label>
-                <label class="mode-pill" data-pill-group="preset" data-mode="overlay">
-                  <input type="radio" name="presetInsertMode" value="overlay">
-                  <span>Overlay / Mix on Top</span>
-                </label>
-                <label class="mode-pill" data-pill-group="preset" data-mode="append">
-                  <input type="radio" name="presetInsertMode" value="append">
-                  <span>Append to End</span>
-                </label>
-              </div>
-
-              <!-- Overlay Options -->
-              <div id="presetOverlayOptions" class="overlay-sub-options" style="display: none; flex-direction: column; gap: 8px;">
-                <div style="display: flex; gap: 8px;">
-                  <div class="form-group" style="flex: 1;">
-                    <label style="font-size: 10px;">Blend Mode</label>
-                    <select id="presetBlendModeSelect" class="form-select" style="padding: 4px 8px; font-size: 11px;">
-                      <option value="add">Additive Flare (Intersection Glows White-Hot!)</option>
-                      <option value="max">Maximum (Clean Superposition)</option>
-                      <option value="stencil">Mask / Stencil (Cutout - background only shines through mask)</option>
-                      <option value="overwrite">Overwrite Non-Zero</option>
-                      <option value="screen">Screen (Soft Highlight)</option>
-                      <option value="subtract">Subtract (Cutout / Shadow)</option>
-                    </select>
-                  </div>
-                  <div class="form-group" style="flex: 1;">
-                    <label style="font-size: 10px;">Harmonic Speed Division</label>
-                    <select id="presetHarmonicDivisionSelect" class="form-select" style="padding: 4px 8px; font-size: 11px;">
-                      <option value="1">1&times; (Match Timeline Length)</option>
-                      <option value="2">2&times; (Double Speed / 2 Cycles)</option>
-                      <option value="3">3&times; (Triple Speed / 3 Cycles)</option>
-                      <option value="4">4&times; (Quad Speed / 4 Cycles)</option>
-                    </select>
-                  </div>
-                </div>
-                <!-- Visual Sync Alignment Bar -->
-                <div id="presetSyncBadge" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 10px; font-size: 10px; display: flex; align-items: center; justify-content: space-between;">
-                  <span id="presetSyncStatusText" style="color: var(--text-muted);">Active Timeline: <strong style="color: var(--accent-red);" id="presetActiveTimelineLen">48</strong> frames</span>
-                  <span id="presetSyncLoopText" style="color: #4ade80; font-weight: 600;">✓ Seamless 1:1 Loop</span>
-                </div>
-              </div>
-            </div>
-            
             <!-- Pane 1: Cylon Sweep -->
             <div class="preset-pane active" id="pane-cylon">
               <div class="config-help-text">
-                Classic Daft Punk / Battlestar visor sweep. Motion speed is controlled by the number of frames per sweep (fewer frames = faster motion).
+                Classic KITT / Battlestar visor sweep. Motion speed is controlled by the number of frames per sweep
+                (fewer frames = faster motion).
               </div>
 
               <div class="config-grid-2col">
@@ -526,14 +545,16 @@
                     <span>Beam Width</span>
                     <span class="slider-val-badge" id="cylonWidthVal">3 px</span>
                   </div>
-                  <input type="range" id="cylonBeamWidthInput" min="1" max="8" value="3" class="form-input" style="padding: 2px;">
+                  <input type="range" id="cylonBeamWidthInput" min="1" max="8" value="3" class="form-input"
+                    style="padding: 2px;">
                 </div>
                 <div class="form-group">
                   <div class="slider-val-label">
                     <span>Phosphor Tail Length</span>
                     <span class="slider-val-badge" id="cylonTailVal">6 px</span>
                   </div>
-                  <input type="range" id="cylonTailLengthInput" min="0" max="14" value="6" class="form-input" style="padding: 2px;">
+                  <input type="range" id="cylonTailLengthInput" min="0" max="14" value="6" class="form-input"
+                    style="padding: 2px;">
                 </div>
               </div>
 
@@ -542,7 +563,8 @@
                   <span>Frames per Sweep (Motion Speed)</span>
                   <span class="slider-val-badge" id="cylonFramesVal">24 frames</span>
                 </div>
-                <input type="range" id="cylonFramesInput" min="5" max="100" value="24" class="form-input" style="padding: 2px;">
+                <input type="range" id="cylonFramesInput" min="5" max="100" value="24" class="form-input"
+                  style="padding: 2px;">
                 <div style="font-size: 10px; color: var(--text-muted); margin-top: 3px;" id="cylonFramesHelp">
                   Fewer frames = faster speed (e.g. 12 frames runs 2&times; faster than 24 frames).
                 </div>
@@ -557,7 +579,8 @@
             <!-- Pane 2: Robotic Eyes -->
             <div class="preset-pane" id="pane-robot_eyes">
               <div class="config-help-text">
-                Robotic eye clusters centered on the Left and Right eye zones. Choose expressions, geometry, and hold timing.
+                Robotic eye clusters centered on the Left and Right eye zones. Choose expressions, geometry, and hold
+                timing.
               </div>
 
               <div class="config-grid-2col">
@@ -588,14 +611,16 @@
                     <span>Eye Width</span>
                     <span class="slider-val-badge" id="eyeWidthVal">10 px</span>
                   </div>
-                  <input type="range" id="eyeWidthInput" min="2" max="19" value="10" class="form-input" style="padding: 2px;">
+                  <input type="range" id="eyeWidthInput" min="2" max="19" value="10" class="form-input"
+                    style="padding: 2px;">
                 </div>
                 <div class="form-group" id="eyeFramesGroup">
                   <div class="slider-val-label">
                     <span>Expression Cycle Frames</span>
                     <span class="slider-val-badge" id="eyeFramesVal">48 frames</span>
                   </div>
-                  <input type="range" id="eyeFramesInput" min="12" max="96" step="6" value="48" class="form-input" style="padding: 2px;">
+                  <input type="range" id="eyeFramesInput" min="12" max="96" step="6" value="48" class="form-input"
+                    style="padding: 2px;">
                   <div style="font-size: 10px; color: var(--text-muted); margin-top: 3px;" id="eyeFramesHelp">
                     Total frames for hold + expression cycle.
                   </div>
@@ -604,7 +629,8 @@
 
               <div class="total-frames-calc">
                 <span class="calc-label">Eye Geometry Preview:</span>
-                <span class="calc-val" id="eyeLayoutBadge">2 &times; 10px eyes &bull; 10px center gap &bull; 5px outer margins</span>
+                <span class="calc-val" id="eyeLayoutBadge">2 &times; 10px eyes &bull; 10px center gap &bull; 5px outer
+                  margins</span>
               </div>
             </div>
 
@@ -615,7 +641,8 @@
               </div>
               <div class="form-group">
                 <label>Text to Scroll (A-Z, 0-9, Punctuation)</label>
-                <input type="text" id="presetMarqueeTextInput" class="form-input" value="ANIMATRIX" maxlength="64" placeholder="Enter message to scroll...">
+                <input type="text" id="presetMarqueeTextInput" class="form-input" value="ANIMATRIX" maxlength="64"
+                  placeholder="Enter message to scroll...">
               </div>
               <div class="config-grid-2col">
                 <div class="form-group">
@@ -667,7 +694,8 @@
                   <span>Frame Count (Timeline Duration)</span>
                   <span class="slider-val-badge" id="eqFramesVal">48 frames</span>
                 </div>
-                <input type="range" id="eqFramesInput" min="10" max="96" step="2" value="48" class="form-input" style="padding: 2px;">
+                <input type="range" id="eqFramesInput" min="10" max="96" step="2" value="48" class="form-input"
+                  style="padding: 2px;">
                 <div style="font-size: 10px; color: var(--text-muted); margin-top: 3px;" id="eqFramesHelp">
                   Set to 48 frames to match a 48-frame sweep or custom timeline loop.
                 </div>
@@ -690,7 +718,7 @@
                   <label>Pulse Pattern</label>
                   <select id="pulsePatternSelect" class="form-select">
                     <option value="breathe">Smooth Sinusoidal Breathe</option>
-                    <option value="heartbeat">Daft Punk Double Heartbeat</option>
+                    <option value="heartbeat">Double Heartbeat</option>
                     <option value="strobe">Rapid Digital Strobe</option>
                     <option value="curtain">Center-Out Curtain Wipe</option>
                   </select>
@@ -712,7 +740,8 @@
                   <span>Frames per Cycle (Speed)</span>
                   <span class="slider-val-badge" id="pulseFramesCycleVal">24 frames</span>
                 </div>
-                <input type="range" id="pulseFramesCycleInput" min="6" max="60" step="2" value="24" class="form-input" style="padding: 2px;">
+                <input type="range" id="pulseFramesCycleInput" min="6" max="60" step="2" value="24" class="form-input"
+                  style="padding: 2px;">
                 <div style="font-size: 10px; color: var(--text-muted); margin-top: 3px;" id="pulseFramesCycleHelp">
                   Controls speed. Fewer frames per cycle breathe faster.
                 </div>
@@ -727,7 +756,8 @@
 
 
             <!-- Action buttons -->
-            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-subtle);">
+            <div
+              style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-subtle);">
               <button class="btn btn-primary" id="generatePresetBtn" style="padding: 8px 18px;">
                 <span>⚡ Generate & Apply Preset</span>
               </button>
@@ -768,7 +798,9 @@
           </div>
         </div>
         <p style="font-size: 11px; color: var(--text-muted);">
-          * Default for Daft Punk eye visor is 40 columns by 3 rows (120 LEDs). Resizing preserves existing overlapping pixels.
+          * Default for Thomas Discovery Lite eye visor is 40 columns by 3 rows (120 LEDs). Resizing preserves existing
+          overlapping
+          pixels.
         </p>
       </div>
       <div class="modal-footer">
@@ -809,7 +841,8 @@
         </div>
 
         <!-- Direct WiFi Push to Helmet Section -->
-        <div style="background: rgba(0, 240, 255, 0.04); border: 1px solid rgba(0, 240, 255, 0.18); border-radius: var(--radius-md); padding: 12px 14px;">
+        <div
+          style="background: rgba(0, 240, 255, 0.04); border: 1px solid rgba(0, 240, 255, 0.18); border-radius: var(--radius-md); padding: 12px 14px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <div style="display: flex; align-items: center; gap: 6px;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2">
@@ -818,14 +851,19 @@
                 <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
                 <line x1="12" y1="20" x2="12.01" y2="20"></line>
               </svg>
-              <strong style="font-size: 11px; color: var(--accent-cyan); letter-spacing: 0.5px; font-family: var(--font-display);">PUSH TO HELMET (ESP32-S3)</strong>
+              <strong
+                style="font-size: 11px; color: var(--accent-cyan); letter-spacing: 0.5px; font-family: var(--font-display);">PUSH
+                TO HELMET (ESP32-S3)</strong>
             </div>
             <span class="status-badge" id="espStatusMsg">Ready to connect</span>
           </div>
 
           <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="text" id="espIpInput" class="form-input" value="192.168.4.1" placeholder="ESP32 IP e.g. 192.168.4.1 or helmet.local" style="flex: 1; padding: 6px 10px; font-family: var(--font-mono); font-size: 12px;">
-            <button class="btn btn-subtle" id="testEspPingBtn" style="font-size: 11px; padding: 6px 12px;">Test Ping</button>
+            <input type="text" id="espIpInput" class="form-input" value="192.168.4.1"
+              placeholder="ESP32 IP e.g. 192.168.4.1 or helmet.local"
+              style="flex: 1; padding: 6px 10px; font-family: var(--font-mono); font-size: 12px;">
+            <button class="btn btn-subtle" id="testEspPingBtn" style="font-size: 11px; padding: 6px 12px;">Test
+              Ping</button>
             <button class="btn btn-cyan" id="pushToHelmetBtn" style="padding: 6px 14px;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
@@ -892,9 +930,11 @@
         <!-- Precision Range Slider & Numeric Input -->
         <div class="form-group" style="margin-top: 14px;">
           <div class="slider-val-label">
-            <span style="font-family: var(--font-display); letter-spacing: 0.5px; font-size: 11px;">PRECISE PWM VALUE (0 - 255)</span>
+            <span style="font-family: var(--font-display); letter-spacing: 0.5px; font-size: 11px;">PRECISE PWM VALUE (0
+              - 255)</span>
             <div style="display: flex; align-items: center; gap: 6px;">
-              <input type="number" id="pwmNumberInput" min="0" max="255" value="255" class="form-input pwm-number-input">
+              <input type="number" id="pwmNumberInput" min="0" max="255" value="255"
+                class="form-input pwm-number-input">
               <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">/ 255</span>
             </div>
           </div>
@@ -907,31 +947,36 @@
             PWM INTENSITY PRESETS
           </label>
           <div class="pwm-preset-grid" id="pwmPresetGrid">
-            <button class="pwm-preset-tile active" type="button" data-pwm="255" data-percent="100" title="100% Brightness (255 PWM)">
+            <button class="pwm-preset-tile active" type="button" data-pwm="255" data-percent="100"
+              title="100% Brightness (255 PWM)">
               <div class="pwm-preset-square">
                 <div class="pwm-square-fill" style="opacity: 1.0;"></div>
               </div>
               <span class="pwm-preset-label">100%</span>
             </button>
-            <button class="pwm-preset-tile" type="button" data-pwm="192" data-percent="75" title="75% Brightness (192 PWM)">
+            <button class="pwm-preset-tile" type="button" data-pwm="192" data-percent="75"
+              title="75% Brightness (192 PWM)">
               <div class="pwm-preset-square">
                 <div class="pwm-square-fill" style="opacity: 0.75;"></div>
               </div>
               <span class="pwm-preset-label">75%</span>
             </button>
-            <button class="pwm-preset-tile" type="button" data-pwm="128" data-percent="50" title="50% Brightness (128 PWM)">
+            <button class="pwm-preset-tile" type="button" data-pwm="128" data-percent="50"
+              title="50% Brightness (128 PWM)">
               <div class="pwm-preset-square">
                 <div class="pwm-square-fill" style="opacity: 0.50;"></div>
               </div>
               <span class="pwm-preset-label">50%</span>
             </button>
-            <button class="pwm-preset-tile" type="button" data-pwm="64" data-percent="25" title="25% Brightness (64 PWM)">
+            <button class="pwm-preset-tile" type="button" data-pwm="64" data-percent="25"
+              title="25% Brightness (64 PWM)">
               <div class="pwm-preset-square">
                 <div class="pwm-square-fill" style="opacity: 0.25;"></div>
               </div>
               <span class="pwm-preset-label">25%</span>
             </button>
-            <button class="pwm-preset-tile" type="button" data-pwm="26" data-percent="10" title="10% Brightness (26 PWM)">
+            <button class="pwm-preset-tile" type="button" data-pwm="26" data-percent="10"
+              title="10% Brightness (26 PWM)">
               <div class="pwm-preset-square">
                 <div class="pwm-square-fill" style="opacity: 0.10;"></div>
               </div>
@@ -962,11 +1007,13 @@
         <div style="display: flex; gap: 8px;">
           <button class="btn btn-subtle" id="pwmModalSwapBtn" type="button" title="Swap Foreground and Background (X)">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M7 10h14l-4-4"></path><path d="M17 14H3l4 4"></path>
+              <path d="M7 10h14l-4-4"></path>
+              <path d="M17 14H3l4 4"></path>
             </svg>
             <span>Swap (X)</span>
           </button>
-          <button class="btn btn-subtle" id="pwmModalResetBtn" type="button" title="Reset to Defaults: FG 255 / BG 0 (D)">
+          <button class="btn btn-subtle" id="pwmModalResetBtn" type="button"
+            title="Reset to Defaults: FG 255 / BG 0 (D)">
             <span>Default (D)</span>
           </button>
         </div>
@@ -983,7 +1030,9 @@
       <div class="modal-header welcome-modal-header">
         <div class="welcome-header-badge">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            <polygon
+              points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+            </polygon>
           </svg>
           <span>SYSTEM INITIALIZATION</span>
         </div>
@@ -992,7 +1041,8 @@
       <div class="modal-body welcome-modal-body">
         <h2 class="welcome-title">"Welcome to the world of tomorrow!"</h2>
         <p class="welcome-desc">
-          Animatrix LED Studio is your companion studio for designing, previewing, and sequencing custom 8-bit LED visor animations for helmet displays and custom LED matrices.
+          Animatrix LED Studio is your companion studio for designing, previewing, and sequencing custom 8-bit LED visor
+          animations for helmet displays and custom LED matrices.
         </p>
         <div class="welcome-question-banner">
           How would you like to start your animation today?
@@ -1028,7 +1078,7 @@
             </div>
             <div class="welcome-choice-content">
               <div class="welcome-choice-title">Something Totally Random</div>
-              <div class="welcome-choice-subtitle">Surprise me with a procedural routine or Daft Punk ticker</div>
+              <div class="welcome-choice-subtitle">Surprise me with a procedural routine or text ticker</div>
             </div>
             <div class="welcome-choice-arrow">&rarr;</div>
           </button>
@@ -1040,4 +1090,5 @@
   <!-- Main ES Module Script -->
   <script type="module" src="js/app.js?v=3.0"></script>
 </body>
+
 </html>
