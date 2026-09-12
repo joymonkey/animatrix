@@ -121,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 4b. Welcome Onboarding Modal ("Welcome to the world of tomorrow!")
   const welcomeModal = document.getElementById('welcomeModal');
   const welcomeBlankBtn = document.getElementById('welcomeBlankBtn');
+  const welcomePresetsBtn = document.getElementById('welcomePresetsBtn');
   const welcomeRandomBtn = document.getElementById('welcomeRandomBtn');
   const welcomeCloseBtn = document.getElementById('welcomeCloseBtn');
 
@@ -235,6 +236,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (welcomeBlankBtn) welcomeBlankBtn.addEventListener('click', startBlankAnimation);
+  if (welcomePresetsBtn) {
+    welcomePresetsBtn.addEventListener('click', () => {
+      closeWelcomeModal();
+      if (openPresetModalBtn) openPresetModalBtn.click();
+    });
+  }
   if (welcomeRandomBtn) welcomeRandomBtn.addEventListener('click', startRandomAnimation);
   if (welcomeCloseBtn) welcomeCloseBtn.addEventListener('click', closeWelcomeModal);
   if (welcomeModal) {
@@ -526,6 +533,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       animationPlayer.stop();
       matrixState.clearAnimation();
+    });
+  }
+
+  const barRandomBtn = document.getElementById('barRandomBtn');
+  if (barRandomBtn) {
+    barRandomBtn.addEventListener('click', () => {
+      animationPlayer.stop();
+      startRandomAnimation();
     });
   }
 

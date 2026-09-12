@@ -1275,6 +1275,17 @@ button.info-pill:hover svg {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
+.welcome-choice-card.presets-card {
+  border-color: rgba(255, 170, 0, 0.3);
+  background: rgba(255, 170, 0, 0.04);
+}
+
+.welcome-choice-card.presets-card:hover {
+  border-color: #ffaa00;
+  background: rgba(255, 170, 0, 0.12);
+  box-shadow: 0 0 16px rgba(255, 170, 0, 0.25);
+}
+
 .welcome-choice-card.random-card {
   border-color: rgba(0, 240, 255, 0.3);
   background: rgba(0, 240, 255, 0.04);
@@ -1306,6 +1317,12 @@ button.info-pill:hover svg {
 
 .blank-icon {
   color: #ffffff;
+}
+
+.presets-icon {
+  color: #ffaa00;
+  border-color: rgba(255, 170, 0, 0.4);
+  background: rgba(255, 170, 0, 0.1);
 }
 
 .random-icon {

@@ -14,9 +14,9 @@
   <meta http-equiv="Expires" content="0">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=3.0">
+  <link rel="stylesheet" href="css/style.css?v=3.1">
   <link rel="stylesheet" href="css/matrix.css?v=2.2">
-  <link rel="stylesheet" href="css/timeline.css?v=2.3">
+  <link rel="stylesheet" href="css/timeline.css?v=2.4">
 </head>
 
 <body>
@@ -373,6 +373,16 @@
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
             <line x1="10" y1="11" x2="10" y2="17"></line>
             <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+        </button>
+        <button class="playback-btn random-hover" id="barRandomBtn" title="Something Totally Random (Generate a surprise procedural sequence)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="3" ry="3"></rect>
+            <circle cx="8" cy="8" r="1.5" fill="currentColor"></circle>
+            <circle cx="16" cy="8" r="1.5" fill="currentColor"></circle>
+            <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
+            <circle cx="8" cy="16" r="1.5" fill="currentColor"></circle>
+            <circle cx="16" cy="16" r="1.5" fill="currentColor"></circle>
           </svg>
         </button>
       </div>
@@ -1155,7 +1165,29 @@
             <div class="welcome-choice-arrow">&rarr;</div>
           </button>
 
-          <!-- Choice 2: Something Totally Random -->
+          <!-- Choice 2: Presets & Generators -->
+          <button class="welcome-choice-card presets-card" id="welcomePresetsBtn" type="button">
+            <div class="welcome-choice-icon presets-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="4" y1="21" x2="4" y2="14"></line>
+                <line x1="4" y1="10" x2="4" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12" y2="3"></line>
+                <line x1="20" y1="21" x2="20" y2="16"></line>
+                <line x1="20" y1="12" x2="20" y2="3"></line>
+                <line x1="1" y1="14" x2="7" y2="14"></line>
+                <line x1="9" y1="8" x2="15" y2="8"></line>
+                <line x1="17" y1="16" x2="23" y2="16"></line>
+              </svg>
+            </div>
+            <div class="welcome-choice-content">
+              <div class="welcome-choice-title">Presets & Generators</div>
+              <div class="welcome-choice-subtitle">Launch the studio with Cylon sweeps, robotic eyes, equalizers & marquees</div>
+            </div>
+            <div class="welcome-choice-arrow">&rarr;</div>
+          </button>
+
+          <!-- Choice 3: Something Totally Random -->
           <button class="welcome-choice-card random-card" id="welcomeRandomBtn" type="button">
             <div class="welcome-choice-icon random-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1178,7 +1210,7 @@
   </div>
 
   <!-- Main ES Module Script -->
-  <script type="module" src="js/app.js?v=3.1"></script>
+  <script type="module" src="js/app.js?v=3.2"></script>
 </body>
 
 </html>

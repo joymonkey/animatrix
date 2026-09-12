@@ -57,6 +57,13 @@
   box-shadow: 0 0 10px rgba(255, 68, 68, 0.25);
 }
 
+.playback-btn.random-hover:hover {
+  border-color: #a855f7;
+  color: #c084fc;
+  background: rgba(168, 85, 247, 0.12);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.25);
+}
+
 .control-bar-divider {
   width: 1px;
   height: 18px;
