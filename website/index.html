@@ -637,20 +637,42 @@
             <!-- Pane: Text Marquee -->
             <div class="preset-pane" id="pane-marquee">
               <div class="config-help-text">
-                Smooth horizontal ticker scroller across the matrix using a dedicated 3-row micro bitmap font alphabet.
+                Bitmap typography scroller with directional motion, center-stopping, and pause holds.
               </div>
               <div class="form-group">
-                <label>Text to Scroll (A-Z, 0-9, Punctuation)</label>
+                <label>Text to Display (A-Z, 0-9, Punctuation)</label>
                 <input type="text" id="presetMarqueeTextInput" class="form-input" value="ANIMATRIX" maxlength="64"
                   placeholder="Enter message to scroll...">
               </div>
+
               <div class="config-grid-2col">
+                <div class="form-group">
+                  <label>Motion Behavior</label>
+                  <select id="presetMarqueeMotionSelect" class="form-select">
+                    <option value="stop_at_center">Scroll In & Settle at Center</option>
+                    <option value="pause_and_exit">Scroll In, Pause at Center & Exit</option>
+                    <option value="scroll_through">Continuous Scroll Through (No Pause)</option>
+                  </select>
+                </div>
                 <div class="form-group">
                   <label>Scroll Direction</label>
                   <select id="presetMarqueeDirectionSelect" class="form-select">
                     <option value="left">Right to Left (Standard &larr;)</option>
                     <option value="right">Left to Right (&rarr;)</option>
+                    <option value="down">Top to Bottom (&darr;)</option>
+                    <option value="up">Bottom to Top (&uarr;)</option>
                   </select>
+                </div>
+              </div>
+
+              <div class="config-grid-2col">
+                <div class="form-group">
+                  <div class="slider-val-label">
+                    <span>Scroll Speed</span>
+                    <span class="slider-val-badge" id="presetMarqueeSpeedVal">1 px/frame</span>
+                  </div>
+                  <input type="range" id="presetMarqueeSpeedInput" min="1" max="8" value="1" class="form-input"
+                    style="padding: 2px;">
                 </div>
                 <div class="form-group">
                   <label>Character Spacing / Tracking</label>
@@ -660,6 +682,35 @@
                     <option value="0">Tight (0 Blank Cols)</option>
                   </select>
                 </div>
+              </div>
+
+              <div class="form-group" id="marqueePauseGroup">
+                <div class="slider-val-label">
+                  <span>Center Pause Duration</span>
+                  <span class="slider-val-badge" id="presetMarqueePauseVal">24 frames</span>
+                </div>
+                <input type="range" id="presetMarqueePauseInput" min="0" max="120" value="24" class="form-input"
+                  style="padding: 2px;">
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 3px;" id="presetMarqueePauseHelp">
+                  Number of frames to hold text stationary when it reaches the center position.
+                </div>
+              </div>
+
+              <div class="form-group" id="marqueeTransitionGroup">
+                <label>Previous Sequence Transition (When Appending)</label>
+                <select id="presetMarqueeTransitionSelect" class="form-select">
+                  <option value="push" selected>Push / Scroll-Out (Old content scrolls off as new enters)</option>
+                  <option value="fade">Fade Out (Old content dims to black as new enters)</option>
+                  <option value="none">None / Cut (Start on blank matrix)</option>
+                </select>
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 3px;" id="presetMarqueeTransitionHelp">
+                  Smoothly transitions the last frame of the previous sequence into this new text sequence.
+                </div>
+              </div>
+
+              <div class="total-frames-calc">
+                <span class="calc-label">Total Generated Timeline:</span>
+                <span class="calc-val" id="marqueeTotalFramesBadge">48 frames</span>
               </div>
             </div>
 

@@ -15,6 +15,7 @@ import { EspUploader } from './io/EspUploader.js?v=2.7';
 import { TimelineView } from './components/TimelineView.js?v=2.7';
 import { PresetLibrary } from './presets/DefaultAnimations.js?v=2.7';
 import { PresetThumbnails } from './ui/PresetThumbnails.js?v=3.0';
+import { renderTextToBitmap3 } from './tools/MicroFont.js?v=2.7';
 
 // Dynamic LED Phosphor / Theme Palette Management
 export const THEME_PALETTES = {
@@ -698,6 +699,20 @@ document.addEventListener('DOMContentLoaded', () => {
           : 'Controls speed. Fewer frames per cycle breathe faster.';
       }
     }
+
+    // 5. Marquee Pause (if stop_at_center or pause_and_exit)
+    const marqueePauseGroup = document.getElementById('marqueePauseGroup');
+    const marqueePauseInput = document.getElementById('presetMarqueePauseInput');
+    const marqueePauseHelp = document.getElementById('presetMarqueePauseHelp');
+    if (marqueePauseGroup && marqueePauseInput) {
+      marqueePauseInput.disabled = isLocked;
+      marqueePauseGroup.classList.toggle('input-locked', isLocked);
+      if (marqueePauseHelp) {
+        marqueePauseHelp.textContent = isLocked
+          ? '🔒 Locked to timeline sync (center hold conforms to active timeline loop).'
+          : 'Number of frames to hold text stationary when it reaches the center position.';
+      }
+    }
   }
 
   // Harmonic Speed & Timeline Synchronization for Overlay Mode
@@ -758,12 +773,59 @@ document.addEventListener('DOMContentLoaded', () => {
         if (badge) badge.textContent = `${pulseInput.value} frames`;
         updatePulseSummary();
       }
+    } else if (activePresetTab === 'marquee') {
+      const motionMode = document.getElementById('presetMarqueeMotionSelect')?.value || 'stop_at_center';
+      const dir = document.getElementById('presetMarqueeDirectionSelect')?.value || 'left';
+      const speed = parseInt(document.getElementById('presetMarqueeSpeedInput')?.value, 10) || 1;
+      const text = document.getElementById('presetMarqueeTextInput')?.value || 'ANIMATRIX';
+      const tracking = parseInt(document.getElementById('presetMarqueeTrackingSelect')?.value, 10) || 1;
+      const bitmap = renderTextToBitmap3(text, tracking);
+      const textW = bitmap.width;
+      const textH = bitmap.height;
+      const matrixW = matrixState.width;
+      const matrixH = matrixState.height;
+      const centerX = Math.floor((matrixW - textW) / 2);
+      const centerY = Math.max(0, Math.floor((matrixH - textH) / 2));
+
+      let stepsIn = 0;
+      if (dir === 'left') stepsIn = matrixW - centerX;
+      else if (dir === 'right') stepsIn = centerX + textW;
+      else if (dir === 'down') stepsIn = centerY + textH;
+      else if (dir === 'up') stepsIn = matrixH - centerY;
+
+      const pauseInput = document.getElementById('presetMarqueePauseInput');
+      if (pauseInput && (motionMode === 'stop_at_center' || motionMode === 'pause_and_exit')) {
+        const inDuration = Math.ceil(stepsIn / speed);
+        pauseInput.value = Math.max(0, targetCycleFrames - inDuration);
+        const badge = document.getElementById('presetMarqueePauseVal');
+        if (badge) badge.textContent = `${pauseInput.value} frames`;
+        updateMarqueeSummary();
+      }
     }
   }
 
   const harmonicSelect = document.getElementById('presetHarmonicDivisionSelect');
   if (harmonicSelect) {
     harmonicSelect.addEventListener('change', updateOverlaySyncUI);
+  }
+
+  // Update Marquee Transition UI state based on timeline mixing mode
+  function updateMarqueeTransitionUI(mode) {
+    const transitionSelect = document.getElementById('presetMarqueeTransitionSelect');
+    const transitionHelp = document.getElementById('presetMarqueeTransitionHelp');
+    const transitionGroup = document.getElementById('marqueeTransitionGroup');
+    if (!transitionSelect || !transitionHelp) return;
+
+    const isAppend = (mode === 'append');
+    transitionSelect.disabled = !isAppend;
+    if (transitionGroup) {
+      transitionGroup.classList.toggle('input-locked', !isAppend);
+    }
+    if (isAppend) {
+      transitionHelp.textContent = 'Active: Seamlessly pushes or fades the last frame of your existing timeline as new text enters.';
+    } else {
+      transitionHelp.textContent = 'ℹ️ Only active when "Append to End" timeline mixing is selected.';
+    }
   }
 
   // Mode pill selections for Preset
@@ -787,11 +849,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           setInputLockState(false);
         }
+        updateMarqueeTransitionUI(mode);
       });
     });
   }
 
   setupModePills('preset', 'presetOverlayOptions');
+  updateMarqueeTransitionUI('replace');
 
   // Parametric Preset Studio Management
   let activePresetTab = 'cylon';
@@ -833,6 +897,8 @@ document.addEventListener('DOMContentLoaded', () => {
   bindSliderBadge('eyeFramesInput', 'eyeFramesVal', ' frames');
   bindSliderBadge('eqFramesInput', 'eqFramesVal', ' frames');
   bindSliderBadge('pulseFramesCycleInput', 'pulseFramesCycleVal', ' frames');
+  bindSliderBadge('presetMarqueeSpeedInput', 'presetMarqueeSpeedVal', ' px/frame');
+  bindSliderBadge('presetMarqueePauseInput', 'presetMarqueePauseVal', ' frames');
 
   // Live calculation summaries for presets
   function updateCylonSummary() {
@@ -885,6 +951,64 @@ document.addEventListener('DOMContentLoaded', () => {
     if (badge) {
       badge.textContent = `${numFrames} frames`;
     }
+  }
+
+  function updateMarqueeSummary() {
+    const text = document.getElementById('presetMarqueeTextInput')?.value || 'ANIMATRIX';
+    const motionMode = document.getElementById('presetMarqueeMotionSelect')?.value || 'stop_at_center';
+    const dir = document.getElementById('presetMarqueeDirectionSelect')?.value || 'left';
+    const speed = parseInt(document.getElementById('presetMarqueeSpeedInput')?.value, 10) || 1;
+    const pauseFrames = parseInt(document.getElementById('presetMarqueePauseInput')?.value, 10) || 0;
+    const tracking = parseInt(document.getElementById('presetMarqueeTrackingSelect')?.value, 10) || 1;
+    const badge = document.getElementById('marqueeTotalFramesBadge');
+    const pauseGroup = document.getElementById('marqueePauseGroup');
+
+    if (pauseGroup) {
+      pauseGroup.style.display = (motionMode === 'scroll_through') ? 'none' : 'flex';
+    }
+
+    const bitmap = renderTextToBitmap3(text, tracking);
+    const textW = bitmap.width;
+    const textH = bitmap.height;
+    const matrixW = matrixState.width;
+    const matrixH = matrixState.height;
+    const centerX = Math.floor((matrixW - textW) / 2);
+    const centerY = Math.max(0, Math.floor((matrixH - textH) / 2));
+
+    let stepsIn = 0;
+    let stepsOut = 0;
+
+    if (dir === 'left') {
+      stepsIn = matrixW - centerX;
+      stepsOut = centerX + textW;
+    } else if (dir === 'right') {
+      stepsIn = centerX + textW;
+      stepsOut = matrixW - centerX;
+    } else if (dir === 'down') {
+      stepsIn = centerY + textH;
+      stepsOut = matrixH - centerY;
+    } else if (dir === 'up') {
+      stepsIn = matrixH - centerY;
+      stepsOut = centerY + textH;
+    }
+
+    let totalFrames = 0;
+    let detail = '';
+    const inFrames = Math.ceil(stepsIn / speed);
+    const outFrames = Math.ceil(stepsOut / speed);
+
+    if (motionMode === 'scroll_through') {
+      totalFrames = Math.ceil((stepsIn + stepsOut) / speed);
+      detail = `${totalFrames} frames (${speed} px/frame • continuous scroll)`;
+    } else if (motionMode === 'stop_at_center') {
+      totalFrames = inFrames + pauseFrames;
+      detail = `${totalFrames} frames (${speed} px/frame • ${inFrames}f in + ${pauseFrames}f center hold)`;
+    } else if (motionMode === 'pause_and_exit') {
+      totalFrames = inFrames + pauseFrames + outFrames;
+      detail = `${totalFrames} frames (${speed} px/frame • ${inFrames}f in + ${pauseFrames}f pause + ${outFrames}f out)`;
+    }
+
+    if (badge) badge.textContent = detail;
   }
 
   function updateEyeSummary() {
@@ -954,6 +1078,14 @@ document.addEventListener('DOMContentLoaded', () => {
     eqFramesInputEl.addEventListener('input', updateEqSummary);
   }
 
+  ['presetMarqueeTextInput', 'presetMarqueeMotionSelect', 'presetMarqueeDirectionSelect', 'presetMarqueeSpeedInput', 'presetMarqueePauseInput', 'presetMarqueeTrackingSelect'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', updateMarqueeSummary);
+      el.addEventListener('change', updateMarqueeSummary);
+    }
+  });
+
   const eyeWidthInputEl = document.getElementById('eyeWidthInput');
   if (eyeWidthInputEl) {
     eyeWidthInputEl.addEventListener('input', updateEyeSummary);
@@ -964,6 +1096,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateCylonSummary();
   updatePulseSummary();
   updateEqSummary();
+  updateMarqueeSummary();
   updateEyeControls();
 
   // Generate Preset Action
@@ -1040,16 +1173,23 @@ document.addEventListener('DOMContentLoaded', () => {
       }, insertionOptions);
     } else if (activePresetTab === 'marquee') {
       const text = document.getElementById('presetMarqueeTextInput')?.value || 'ANIMATRIX';
+      const motionMode = document.getElementById('presetMarqueeMotionSelect')?.value || 'stop_at_center';
       const dir = document.getElementById('presetMarqueeDirectionSelect')?.value || 'left';
+      const pixelsPerFrame = parseInt(document.getElementById('presetMarqueeSpeedInput')?.value, 10) || 1;
+      const pauseFrames = parseInt(document.getElementById('presetMarqueePauseInput')?.value, 10) || 24;
       const tracking = parseInt(document.getElementById('presetMarqueeTrackingSelect')?.value, 10) || 1;
+      const transition = document.getElementById('presetMarqueeTransitionSelect')?.value || 'push';
 
       generators.generateMarquee(text, {
         fps: matrixState.globalFps,
+        motionMode,
         scrollDirection: dir,
-        tracking: tracking,
-        leadInBlankCols: 6,
-        leadOutBlankCols: 10,
+        pixelsPerFrame,
+        pauseFrames,
+        tracking,
+        transition,
         brightness: drawEngine.brushBrightness,
+        targetTotalFrames,
         insertion: insertionOptions
       });
     }

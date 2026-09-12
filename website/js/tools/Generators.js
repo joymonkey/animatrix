@@ -18,53 +18,225 @@ export class Generators {
   }
 
   /**
-   * Generates a smooth scrolling text marquee across the matrix.
-   * Auto-centers vertically on matrices of any height H >= 3.
+   * Generates a text marquee with customizable motion behavior (stop at center, pause & exit, scroll through),
+   * 4-way direction (left, right, down, up), speed (pixels per frame), and center pause duration.
+   * Auto-centers on matrices of any dimensions (W x H).
    */
-  generateMarquee(text = 'DAFT PUNK', options = {}) {
+  generateMarquee(text = 'ANIMATRIX', options = {}) {
     const {
-      scrollDirection = 'left', // 'left' or 'right'
-      leadInBlankCols = this.state.width,
-      leadOutBlankCols = this.state.width,
+      scrollDirection = 'left', // 'left' | 'right' | 'down' | 'up'
+      motionMode = 'stop_at_center', // 'stop_at_center' | 'pause_and_exit' | 'scroll_through'
+      pixelsPerFrame = 1, // 1 to 8 pixels advanced per frame
+      pauseFrames = 24, // Frames held at center position
       brightness = 255,
-      tracking = 1
+      tracking = 1,
+      transition = 'push', // 'push' | 'fade' | 'none'
+      targetTotalFrames = null
     } = options;
 
+    const stepSize = Math.max(1, parseInt(pixelsPerFrame || options.pixelsPerStep || options.framesPerStep, 10) || 1);
+
     const bitmap = renderTextToBitmap3(text, tracking);
-    const textWidth = bitmap.width;
-    const textHeight = bitmap.height; // 3
+    const textW = bitmap.width;
+    const textH = bitmap.height; // 3
     const matrixW = this.state.width;
     const matrixH = this.state.height;
 
-    // Center font vertically for any matrix height
-    const startY = Math.max(0, Math.floor((matrixH - textHeight) / 2));
-    const totalSteps = leadInBlankCols + textWidth + leadOutBlankCols;
+    // Centered coordinates
+    const centerX = Math.floor((matrixW - textW) / 2);
+    const centerY = Math.max(0, Math.floor((matrixH - textH) / 2));
     const frameDurationMs = this.state.defaultDurationMs;
-    const newFrames = [];
 
-    for (let step = 0; step < totalSteps; step++) {
+    // Transition handling from existing timeline when appending
+    const isAppendMode = options.insertion && options.insertion.mode === 'append';
+    const effectiveTransition = isAppendMode ? (transition || 'push') : 'none';
+
+    let prevFrameData = null;
+    if (effectiveTransition !== 'none' && this.state.frames && this.state.frames.length > 0) {
+      const lastFrame = this.state.frames[this.state.frames.length - 1];
+      if (lastFrame && lastFrame.data && !lastFrame.data.every(v => v === 0)) {
+        prevFrameData = lastFrame.data;
+      }
+    }
+
+    // Build positions array for (x, y) stepping by stepSize
+    const range = (from, to, step) => {
+      const arr = [];
+      const dir = to >= from ? 1 : -1;
+      let p = from;
+      while ((dir > 0 && p < to) || (dir < 0 && p > to)) {
+        arr.push(p);
+        p += dir * step;
+      }
+      arr.push(to); // Always ensure landing precisely at destination
+      return arr;
+    };
+
+    let inPositions = [];
+    let outPositions = [];
+    let throughPositions = [];
+
+    if (scrollDirection === 'left') {
+      // Right to Left: enters from right edge (matrixW - stepSize) down to centerX
+      inPositions = range(matrixW - stepSize, centerX, stepSize).map(x => ({ x, y: centerY }));
+      outPositions = range(centerX - stepSize, -textW, stepSize).map(x => ({ x, y: centerY }));
+      throughPositions = range(matrixW - stepSize, -textW, stepSize).map(x => ({ x, y: centerY }));
+    } else if (scrollDirection === 'right') {
+      // Left to Right: enters from left edge (-textW + stepSize) up to centerX
+      inPositions = range(-textW + stepSize, centerX, stepSize).map(x => ({ x, y: centerY }));
+      outPositions = range(centerX + stepSize, matrixW, stepSize).map(x => ({ x, y: centerY }));
+      throughPositions = range(-textW + stepSize, matrixW, stepSize).map(x => ({ x, y: centerY }));
+    } else if (scrollDirection === 'down') {
+      // Top to Bottom: enters from top (-textH + stepSize) down to centerY
+      inPositions = range(-textH + stepSize, centerY, stepSize).map(y => ({ x: centerX, y }));
+      outPositions = range(centerY + stepSize, matrixH, stepSize).map(y => ({ x: centerX, y }));
+      throughPositions = range(-textH + stepSize, matrixH, stepSize).map(y => ({ x: centerX, y }));
+    } else if (scrollDirection === 'up') {
+      // Bottom to Top: enters from bottom (matrixH - stepSize) up to centerY
+      inPositions = range(matrixH - stepSize, centerY, stepSize).map(y => ({ x: centerX, y }));
+      outPositions = range(centerY - stepSize, -textH, stepSize).map(y => ({ x: centerX, y }));
+      throughPositions = range(matrixH - stepSize, -textH, stepSize).map(y => ({ x: centerX, y }));
+    }
+
+    // Determine center hold frames (adapt to targetTotalFrames if overlay mixing)
+    let holdCount = Math.max(0, parseInt(pauseFrames, 10) || 0);
+
+    if (targetTotalFrames && targetTotalFrames > 0) {
+      if (motionMode === 'stop_at_center') {
+        const inDuration = inPositions.length;
+        if (targetTotalFrames > inDuration) {
+          holdCount = targetTotalFrames - inDuration;
+        }
+      } else if (motionMode === 'pause_and_exit') {
+        const motionDuration = inPositions.length + outPositions.length;
+        if (targetTotalFrames > motionDuration) {
+          holdCount = targetTotalFrames - motionDuration;
+        }
+      }
+    }
+
+    // Helper to render composite frame with transition
+    const renderCompositeFrame = (xOffset, yOffset, entryIndex = -1, totalEntryFrames = 0) => {
       const buffer = new Uint8Array(matrixW * matrixH);
-      const textLeft = (scrollDirection === 'left') ? (matrixW - step) : (-textWidth + step);
 
-      for (let r = 0; r < textHeight; r++) {
-        const destY = startY + r;
-        if (destY >= matrixH) continue;
+      // 1. Transition previous frame if active and currently in entry phase
+      if (prevFrameData && effectiveTransition !== 'none' && entryIndex >= 0) {
+        if (effectiveTransition === 'push') {
+          let delta = 0;
+          if (scrollDirection === 'left') delta = matrixW - xOffset;
+          else if (scrollDirection === 'right') delta = xOffset + textW;
+          else if (scrollDirection === 'down') delta = yOffset + textH;
+          else if (scrollDirection === 'up') delta = matrixH - yOffset;
 
-        for (let c = 0; c < textWidth; c++) {
-          const destX = textLeft + c;
-          if (destX >= 0 && destX < matrixW) {
-            if (bitmap.rows[r][c] === 1) {
-              buffer[destY * matrixW + destX] = brightness;
+          for (let dy = 0; dy < matrixH; dy++) {
+            for (let dx = 0; dx < matrixW; dx++) {
+              let sx = dx;
+              let sy = dy;
+
+              if (scrollDirection === 'left') sx = dx + delta;
+              else if (scrollDirection === 'right') sx = dx - delta;
+              else if (scrollDirection === 'down') sy = dy - delta;
+              else if (scrollDirection === 'up') sy = dy + delta;
+
+              if (sx >= 0 && sx < matrixW && sy >= 0 && sy < matrixH) {
+                buffer[dy * matrixW + dx] = prevFrameData[sy * matrixW + sx];
+              }
+            }
+          }
+        } else if (effectiveTransition === 'fade') {
+          const fadeLen = Math.max(1, totalEntryFrames);
+          const factor = Math.max(0, 1 - (entryIndex + 1) / fadeLen);
+          if (factor > 0) {
+            for (let p = 0; p < matrixW * matrixH; p++) {
+              buffer[p] = Math.round(prevFrameData[p] * factor);
             }
           }
         }
       }
 
-      newFrames.push({
-        id: 'gen_' + Math.random().toString(36).substring(2, 9),
-        durationMs: frameDurationMs,
-        data: buffer
-      });
+      // 2. Render new text over the buffer
+      for (let r = 0; r < textH; r++) {
+        const destY = yOffset + r;
+        if (destY < 0 || destY >= matrixH) continue;
+
+        for (let c = 0; c < textW; c++) {
+          const destX = xOffset + c;
+          if (destX < 0 || destX >= matrixW) continue;
+
+          if (bitmap.rows[r][c] === 1) {
+            buffer[destY * matrixW + destX] = brightness;
+          }
+        }
+      }
+
+      return buffer;
+    };
+
+    const newFrames = [];
+
+    if (motionMode === 'scroll_through') {
+      const maxTransFrames = (scrollDirection === 'left' || scrollDirection === 'right')
+        ? Math.ceil(matrixW / stepSize)
+        : Math.ceil(matrixH / stepSize);
+
+      for (let i = 0; i < throughPositions.length; i++) {
+        const pos = throughPositions[i];
+        const buffer = renderCompositeFrame(pos.x, pos.y, i, maxTransFrames);
+        newFrames.push({
+          id: 'gen_' + Math.random().toString(36).substring(2, 9),
+          durationMs: frameDurationMs,
+          data: buffer
+        });
+      }
+    } else if (motionMode === 'stop_at_center') {
+      // In to center (with transition)
+      for (let i = 0; i < inPositions.length; i++) {
+        const pos = inPositions[i];
+        const buffer = renderCompositeFrame(pos.x, pos.y, i, inPositions.length);
+        newFrames.push({
+          id: 'gen_' + Math.random().toString(36).substring(2, 9),
+          durationMs: frameDurationMs,
+          data: buffer
+        });
+      }
+      // Hold at center (clean, old frame has transitioned out)
+      const centerBuffer = renderCompositeFrame(centerX, centerY, -1, 0);
+      for (let s = 0; s < holdCount; s++) {
+        newFrames.push({
+          id: 'gen_' + Math.random().toString(36).substring(2, 9),
+          durationMs: frameDurationMs,
+          data: centerBuffer
+        });
+      }
+    } else if (motionMode === 'pause_and_exit') {
+      // In to center (with transition)
+      for (let i = 0; i < inPositions.length; i++) {
+        const pos = inPositions[i];
+        const buffer = renderCompositeFrame(pos.x, pos.y, i, inPositions.length);
+        newFrames.push({
+          id: 'gen_' + Math.random().toString(36).substring(2, 9),
+          durationMs: frameDurationMs,
+          data: buffer
+        });
+      }
+      // Hold at center
+      const centerBuffer = renderCompositeFrame(centerX, centerY, -1, 0);
+      for (let s = 0; s < holdCount; s++) {
+        newFrames.push({
+          id: 'gen_' + Math.random().toString(36).substring(2, 9),
+          durationMs: frameDurationMs,
+          data: centerBuffer
+        });
+      }
+      // Out to exit
+      for (const pos of outPositions) {
+        const buffer = renderCompositeFrame(pos.x, pos.y, -1, 0);
+        newFrames.push({
+          id: 'gen_' + Math.random().toString(36).substring(2, 9),
+          durationMs: frameDurationMs,
+          data: buffer
+        });
+      }
     }
 
     this._applyGeneratedFrames(newFrames, `marquee_${text.substring(0, 8).toLowerCase()}`, options.insertion);
