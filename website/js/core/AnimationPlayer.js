@@ -17,7 +17,7 @@ export class AnimationPlayer {
 
     // Listen to state changes
     this.state.subscribe((event) => {
-      if (event === 'frame_deleted' || event === 'matrix_resized') {
+      if (event === 'frame_deleted' || event === 'matrix_resized' || event === 'frames_reloaded') {
         if (this.state.activeFrameIndex >= this.state.frames.length) {
           this.state.setActiveFrame(0);
         }

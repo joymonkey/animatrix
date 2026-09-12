@@ -118,6 +118,7 @@ Animatrix is designed to connect directly with the ESP32-S3 firmware:
 | `[` / `]` | Step Backward / Forward one frame |
 | `Ctrl + Z` | Undo |
 | `Ctrl + Y` | Redo |
+| `Ctrl + D` / `Alt + D` | Duplicate Active Frame directly after current |
 | `B` | Select Pencil Tool |
 | `E` | Select Eraser Tool |
 | `I` | Select Eyedropper Tool |

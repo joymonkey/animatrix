@@ -175,9 +175,9 @@ export class MatrixState {
   }
 
   /**
-   * Add a frame at specific index
+   * Add a frame directly after active frame (or at specific index)
    */
-  addFrame(index = this.frames.length, copyCurrent = false) {
+  addFrame(index = this.activeFrameIndex + 1, copyCurrent = false) {
     const newBuffer = this.createBuffer();
     let duration = this.defaultDurationMs;
 
@@ -201,10 +201,31 @@ export class MatrixState {
   }
 
   /**
-   * Duplicate active or specified frame
+   * Duplicate active or specified frame directly after the source frame
    */
   duplicateFrame(index = this.activeFrameIndex) {
-    return this.addFrame(index + 1, true);
+    const sourceIndex = Math.max(0, Math.min(this.frames.length - 1, index));
+    const sourceFrame = this.frames[sourceIndex];
+    const newBuffer = this.createBuffer();
+    let duration = this.defaultDurationMs;
+
+    if (sourceFrame) {
+      newBuffer.set(sourceFrame.data);
+      duration = sourceFrame.durationMs;
+    }
+
+    const frame = {
+      id: this._generateId(),
+      durationMs: duration,
+      data: newBuffer
+    };
+
+    const targetIdx = sourceIndex + 1;
+    this.frames.splice(targetIdx, 0, frame);
+    this.activeFrameIndex = targetIdx;
+
+    this.notify('frame_added', { frameIndex: targetIdx, frame });
+    return frame;
   }
 
   /**
@@ -247,6 +268,31 @@ export class MatrixState {
     this.frames.reverse();
     this.activeFrameIndex = 0;
     this.notify('frames_reversed');
+  }
+
+  /**
+   * Invert all LED PWM values across all frames in the animation
+   */
+  invertAllFrames() {
+    if (!this.frames || this.frames.length === 0) return;
+    for (const frame of this.frames) {
+      for (let i = 0; i < frame.data.length; i++) {
+        frame.data[i] = 255 - frame.data[i];
+      }
+    }
+    this.notify('frames_reloaded');
+  }
+
+  /**
+   * Completely clear the animation and start with a blank slate (1 empty frame)
+   */
+  clearAnimation() {
+    this.frames = [];
+    this.undoStack = [];
+    this.redoStack = [];
+    this.addFrame(0, false);
+    this.activeFrameIndex = 0;
+    this.notify('frames_reloaded');
   }
 
   /**

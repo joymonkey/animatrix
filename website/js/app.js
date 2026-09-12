@@ -4,7 +4,7 @@
  * Ties together canvas rendering, state, tools, timeline, generators, modals, and export/import.
  */
 
-import { MatrixState } from './core/MatrixState.js?v=2.7';
+import { MatrixState } from './core/MatrixState.js?v=2.8';
 import { LedCanvas } from './core/LedCanvas.js?v=2.7';
 import { AnimationPlayer } from './core/AnimationPlayer.js?v=2.7';
 import { DrawEngine } from './tools/DrawEngine.js?v=2.9';
@@ -12,7 +12,7 @@ import { Generators } from './tools/Generators.js?v=2.7';
 import { JsonHandler } from './io/JsonHandler.js?v=2.7';
 import { CppExporter } from './io/CppExporter.js?v=2.7';
 import { EspUploader } from './io/EspUploader.js?v=2.7';
-import { TimelineView } from './components/TimelineView.js?v=2.7';
+import { TimelineView } from './components/TimelineView.js?v=2.8';
 import { PresetLibrary } from './presets/DefaultAnimations.js?v=2.7';
 import { PresetThumbnails } from './ui/PresetThumbnails.js?v=3.0';
 import { renderTextToBitmap3 } from './tools/MicroFont.js?v=2.7';
@@ -484,6 +484,50 @@ document.addEventListener('DOMContentLoaded', () => {
   nextFrameBtn.addEventListener('click', () => {
     animationPlayer.stepForward();
   });
+
+  const barAddFrameBtn = document.getElementById('barAddFrameBtn');
+  if (barAddFrameBtn) {
+    barAddFrameBtn.addEventListener('click', () => {
+      matrixState.pushUndo();
+      matrixState.addFrame(matrixState.activeFrameIndex + 1, false);
+    });
+  }
+
+  const barDupFrameBtn = document.getElementById('barDupFrameBtn');
+  if (barDupFrameBtn) {
+    barDupFrameBtn.addEventListener('click', () => {
+      matrixState.pushUndo();
+      matrixState.duplicateFrame(matrixState.activeFrameIndex);
+    });
+  }
+
+  const barInvertAllBtn = document.getElementById('barInvertAllBtn');
+  if (barInvertAllBtn) {
+    barInvertAllBtn.addEventListener('click', () => {
+      matrixState.invertAllFrames();
+    });
+  }
+
+  const barReverseAllBtn = document.getElementById('barReverseAllBtn');
+  if (barReverseAllBtn) {
+    barReverseAllBtn.addEventListener('click', () => {
+      matrixState.reverseFrames();
+    });
+  }
+
+  const barClearAllBtn = document.getElementById('barClearAllBtn');
+  if (barClearAllBtn) {
+    barClearAllBtn.addEventListener('click', () => {
+      const hasContent = matrixState.frames.length > 1 || matrixState.frames[0].data.some(b => b > 0);
+      if (hasContent) {
+        if (!confirm('Clear entire animation and start with a blank slate?')) {
+          return;
+        }
+      }
+      animationPlayer.stop();
+      matrixState.clearAnimation();
+    });
+  }
 
   fpsSlider.addEventListener('input', (e) => {
     const fps = parseInt(e.target.value, 10);
@@ -1354,6 +1398,10 @@ document.addEventListener('DOMContentLoaded', () => {
       drawEngine.swapFgBg();
       updateSwatchDisplay();
       if (pwmModal && pwmModal.classList.contains('active')) syncModalValues();
+    } else if ((e.ctrlKey || e.metaKey || e.altKey) && (e.key === 'd' || e.key === 'D')) {
+      e.preventDefault();
+      matrixState.pushUndo();
+      matrixState.duplicateFrame(matrixState.activeFrameIndex);
     } else if (e.key === 'd' || e.key === 'D') {
       drawEngine.resetFgBg();
       updateSwatchDisplay();
