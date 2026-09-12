@@ -1072,7 +1072,29 @@ button.info-pill:hover svg {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 10px;
+  margin-bottom: 14px;
+}
+
+/* Locked Generator Controls in Overlay Mode */
+.form-group.input-locked {
+  opacity: 0.65;
+  transition: opacity 0.2s ease;
+}
+
+.form-group.input-locked input[type="range"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.form-group.input-locked .slider-val-badge {
+  background: rgba(251, 191, 36, 0.12) !important;
+  border-color: rgba(251, 191, 36, 0.35) !important;
+  color: #fbbf24 !important;
+}
+
+.form-group.input-locked .slider-val-badge::before {
+  content: "🔒 ";
+  font-size: 9px;
 }
 
 .insertion-mode-pills {

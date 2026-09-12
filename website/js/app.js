@@ -618,8 +618,72 @@ document.addEventListener('DOMContentLoaded', () => {
   if (openPresetModalBtn) {
     openPresetModalBtn.addEventListener('click', () => {
       updateEyeControls();
-      updateOverlaySyncUI();
+      const modeRadio = document.querySelector('input[name="presetInsertMode"]:checked');
+      if (modeRadio && modeRadio.value === 'overlay') {
+        updateOverlaySyncUI();
+      } else {
+        setInputLockState(false);
+      }
     });
+  }
+
+  // Dynamic input locking for overlay mode
+  function setInputLockState(isLocked) {
+    // 1. Cylon
+    const cylonGroup = document.getElementById('cylonFramesGroup');
+    const cylonInput = document.getElementById('cylonFramesInput');
+    const cylonHelp = document.getElementById('cylonFramesHelp');
+    if (cylonGroup && cylonInput) {
+      cylonInput.disabled = isLocked;
+      cylonGroup.classList.toggle('input-locked', isLocked);
+      if (cylonHelp) {
+        cylonHelp.textContent = isLocked
+          ? '🔒 Locked to timeline sync (adjust speed using Harmonic Speed Division above).'
+          : 'Fewer frames = faster speed (e.g. 12 frames runs 2× faster than 24 frames).';
+      }
+    }
+
+    // 2. Robot Eyes
+    const eyeGroup = document.getElementById('eyeFramesGroup');
+    const eyeInput = document.getElementById('eyeFramesInput');
+    const eyeHelp = document.getElementById('eyeFramesHelp');
+    if (eyeGroup && eyeInput) {
+      eyeInput.disabled = isLocked;
+      eyeGroup.classList.toggle('input-locked', isLocked);
+      if (eyeHelp) {
+        eyeHelp.textContent = isLocked
+          ? '🔒 Locked to timeline sync (adjust cycle using Harmonic Speed Division above).'
+          : 'Total frames for hold + expression cycle.';
+      }
+    }
+
+    // 3. Equalizer
+    const eqGroup = document.getElementById('eqFramesGroup');
+    const eqInput = document.getElementById('eqFramesInput');
+    const eqHelp = document.getElementById('eqFramesHelp');
+    if (eqGroup && eqInput) {
+      eqInput.disabled = isLocked;
+      eqGroup.classList.toggle('input-locked', isLocked);
+      if (eqHelp) {
+        eqHelp.textContent = isLocked
+          ? '🔒 Locked to timeline duration sync.'
+          : 'Set to 48 frames to match a 48-frame sweep or custom timeline loop.';
+      }
+    }
+
+    // 4. Pulse
+    const pulseGroup = document.getElementById('pulseFramesCycleGroup');
+    const pulseInput = document.getElementById('pulseFramesCycleInput');
+    const pulseHelp = document.getElementById('pulseFramesCycleHelp');
+    if (pulseGroup && pulseInput) {
+      pulseInput.disabled = isLocked;
+      pulseGroup.classList.toggle('input-locked', isLocked);
+      if (pulseHelp) {
+        pulseHelp.textContent = isLocked
+          ? '🔒 Locked to timeline sync.'
+          : 'Controls speed. Fewer frames per cycle breathe faster.';
+      }
+    }
   }
 
   // Harmonic Speed & Timeline Synchronization for Overlay Mode
@@ -641,6 +705,9 @@ document.addEventListener('DOMContentLoaded', () => {
         syncLoopText.textContent = `✓ Seamless ${division}× Loop (${targetCycleFrames}f / cycle)`;
       }
     }
+
+    // Lock frame inputs because duration is governed by overlay timeline sync
+    setInputLockState(true);
 
     // Auto-adjust generator inputs to conform to targetCycleFrames
     if (activePresetTab === 'cylon') {
@@ -700,9 +767,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const mode = pill.dataset.mode;
         if (overlayOptions) {
           overlayOptions.style.display = (mode === 'overlay') ? 'flex' : 'none';
-          if (mode === 'overlay') {
-            updateOverlaySyncUI();
-          }
+        }
+        if (mode === 'overlay') {
+          updateOverlaySyncUI();
+        } else {
+          setInputLockState(false);
         }
       });
     });
@@ -726,6 +795,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const modeRadio = document.querySelector('input[name="presetInsertMode"]:checked');
       if (modeRadio && modeRadio.value === 'overlay') {
         updateOverlaySyncUI();
+      } else {
+        setInputLockState(false);
       }
     });
   });

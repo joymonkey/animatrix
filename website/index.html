@@ -389,6 +389,66 @@
 
           <!-- Configurator panels -->
           <div class="preset-config-panel">
+
+            <!-- Timeline Mixing & Insertion Mode (Top Priority Control) -->
+            <div class="insertion-mode-section">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <label style="font-weight: 600; font-size: 11px; color: #fff; display: flex; align-items: center; gap: 6px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                  </svg>
+                  Timeline Mixing Target:
+                </label>
+              </div>
+
+              <div class="insertion-mode-pills">
+                <label class="mode-pill active" data-pill-group="preset" data-mode="replace">
+                  <input type="radio" name="presetInsertMode" value="replace" checked>
+                  <span>Replace Timeline</span>
+                </label>
+                <label class="mode-pill" data-pill-group="preset" data-mode="overlay">
+                  <input type="radio" name="presetInsertMode" value="overlay">
+                  <span>Overlay / Mix on Top</span>
+                </label>
+                <label class="mode-pill" data-pill-group="preset" data-mode="append">
+                  <input type="radio" name="presetInsertMode" value="append">
+                  <span>Append to End</span>
+                </label>
+              </div>
+
+              <!-- Overlay Options -->
+              <div id="presetOverlayOptions" class="overlay-sub-options" style="display: none; flex-direction: column; gap: 8px;">
+                <div style="display: flex; gap: 8px;">
+                  <div class="form-group" style="flex: 1;">
+                    <label style="font-size: 10px;">Blend Mode</label>
+                    <select id="presetBlendModeSelect" class="form-select" style="padding: 4px 8px; font-size: 11px;">
+                      <option value="add">Additive Flare (Intersection Glows White-Hot!)</option>
+                      <option value="max">Maximum (Clean Superposition)</option>
+                      <option value="stencil">Mask / Stencil (Cutout - background only shines through mask)</option>
+                      <option value="overwrite">Overwrite Non-Zero</option>
+                      <option value="screen">Screen (Soft Highlight)</option>
+                      <option value="subtract">Subtract (Cutout / Shadow)</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="flex: 1;">
+                    <label style="font-size: 10px;">Harmonic Speed Division</label>
+                    <select id="presetHarmonicDivisionSelect" class="form-select" style="padding: 4px 8px; font-size: 11px;">
+                      <option value="1">1&times; (Match Timeline Length)</option>
+                      <option value="2">2&times; (Double Speed / 2 Cycles)</option>
+                      <option value="3">3&times; (Triple Speed / 3 Cycles)</option>
+                      <option value="4">4&times; (Quad Speed / 4 Cycles)</option>
+                    </select>
+                  </div>
+                </div>
+                <!-- Visual Sync Alignment Bar -->
+                <div id="presetSyncBadge" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 10px; font-size: 10px; display: flex; align-items: center; justify-content: space-between;">
+                  <span id="presetSyncStatusText" style="color: var(--text-muted);">Active Timeline: <strong style="color: var(--accent-red);" id="presetActiveTimelineLen">48</strong> frames</span>
+                  <span id="presetSyncLoopText" style="color: #4ade80; font-weight: 600;">✓ Seamless 1:1 Loop</span>
+                </div>
+              </div>
+            </div>
             
             <!-- Pane 1: Cylon Sweep -->
             <div class="preset-pane active" id="pane-cylon">
@@ -477,14 +537,14 @@
                 </div>
               </div>
 
-              <div class="form-group">
+              <div class="form-group" id="cylonFramesGroup">
                 <div class="slider-val-label">
                   <span>Frames per Sweep (Motion Speed)</span>
-                  <span class="slider-val-badge" id="cylonFramesVal">40 frames</span>
+                  <span class="slider-val-badge" id="cylonFramesVal">24 frames</span>
                 </div>
-                <input type="range" id="cylonFramesInput" min="5" max="100" value="40" class="form-input" style="padding: 2px;">
-                <div style="font-size: 10px; color: var(--text-muted); margin-top: 3px;">
-                  Fewer frames = faster speed (e.g. 20 frames runs 2&times; faster than 40 frames).
+                <input type="range" id="cylonFramesInput" min="5" max="100" value="24" class="form-input" style="padding: 2px;">
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 3px;" id="cylonFramesHelp">
+                  Fewer frames = faster speed (e.g. 12 frames runs 2&times; faster than 24 frames).
                 </div>
               </div>
 
@@ -530,12 +590,15 @@
                   </div>
                   <input type="range" id="eyeWidthInput" min="2" max="19" value="10" class="form-input" style="padding: 2px;">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="eyeFramesGroup">
                   <div class="slider-val-label">
                     <span>Expression Cycle Frames</span>
                     <span class="slider-val-badge" id="eyeFramesVal">48 frames</span>
                   </div>
                   <input type="range" id="eyeFramesInput" min="12" max="96" step="6" value="48" class="form-input" style="padding: 2px;">
+                  <div style="font-size: 10px; color: var(--text-muted); margin-top: 3px;" id="eyeFramesHelp">
+                    Total frames for hold + expression cycle.
+                  </div>
                 </div>
               </div>
 
@@ -599,14 +662,14 @@
                 </div>
               </div>
 
-              <div class="form-group">
+              <div class="form-group" id="eqFramesGroup">
                 <div class="slider-val-label">
                   <span>Frame Count (Timeline Duration)</span>
-                  <span class="slider-val-badge" id="eqFramesVal">40 frames</span>
+                  <span class="slider-val-badge" id="eqFramesVal">48 frames</span>
                 </div>
-                <input type="range" id="eqFramesInput" min="10" max="80" step="2" value="40" class="form-input" style="padding: 2px;">
-                <div style="font-size: 10px; color: var(--text-muted); margin-top: 3px;">
-                  Set to 40 frames to match a 40-frame sweep or custom timeline loop.
+                <input type="range" id="eqFramesInput" min="10" max="96" step="2" value="48" class="form-input" style="padding: 2px;">
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 3px;" id="eqFramesHelp">
+                  Set to 48 frames to match a 48-frame sweep or custom timeline loop.
                 </div>
               </div>
 
@@ -647,10 +710,10 @@
               <div class="form-group" id="pulseFramesCycleGroup">
                 <div class="slider-val-label">
                   <span>Frames per Cycle (Speed)</span>
-                  <span class="slider-val-badge" id="pulseFramesCycleVal">20 frames</span>
+                  <span class="slider-val-badge" id="pulseFramesCycleVal">24 frames</span>
                 </div>
-                <input type="range" id="pulseFramesCycleInput" min="6" max="60" step="2" value="20" class="form-input" style="padding: 2px;">
-                <div style="font-size: 10px; color: var(--text-muted); margin-top: 3px;">
+                <input type="range" id="pulseFramesCycleInput" min="6" max="60" step="2" value="24" class="form-input" style="padding: 2px;">
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 3px;" id="pulseFramesCycleHelp">
                   Controls speed. Fewer frames per cycle breathe faster.
                 </div>
               </div>
@@ -661,65 +724,7 @@
               </div>
             </div>
 
-            <!-- Timeline Mixing & Insertion Mode -->
-            <div class="insertion-mode-section">
-              <div style="display: flex; align-items: center; justify-content: space-between;">
-                <label style="font-weight: 600; font-size: 11px; color: #fff; display: flex; align-items: center; gap: 6px;">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                    <polyline points="2 17 12 22 22 17"></polyline>
-                    <polyline points="2 12 12 17 22 12"></polyline>
-                  </svg>
-                  Timeline Mixing Target:
-                </label>
-              </div>
 
-              <div class="insertion-mode-pills">
-                <label class="mode-pill active" data-pill-group="preset" data-mode="replace">
-                  <input type="radio" name="presetInsertMode" value="replace" checked>
-                  <span>Replace Timeline</span>
-                </label>
-                <label class="mode-pill" data-pill-group="preset" data-mode="overlay">
-                  <input type="radio" name="presetInsertMode" value="overlay">
-                  <span>Overlay / Mix on Top</span>
-                </label>
-                <label class="mode-pill" data-pill-group="preset" data-mode="append">
-                  <input type="radio" name="presetInsertMode" value="append">
-                  <span>Append to End</span>
-                </label>
-              </div>
-
-              <!-- Overlay Options -->
-              <div id="presetOverlayOptions" class="overlay-sub-options" style="display: none; flex-direction: column; gap: 8px;">
-                <div style="display: flex; gap: 8px;">
-                  <div class="form-group" style="flex: 1;">
-                    <label style="font-size: 10px;">Blend Mode</label>
-                    <select id="presetBlendModeSelect" class="form-select" style="padding: 4px 8px; font-size: 11px;">
-                      <option value="add">Additive Flare (Intersection Glows White-Hot!)</option>
-                      <option value="max">Maximum (Clean Superposition)</option>
-                      <option value="stencil">Mask / Stencil (Cutout - background only shines through mask)</option>
-                      <option value="overwrite">Overwrite Non-Zero</option>
-                      <option value="screen">Screen (Soft Highlight)</option>
-                      <option value="subtract">Subtract (Cutout / Shadow)</option>
-                    </select>
-                  </div>
-                  <div class="form-group" style="flex: 1;">
-                    <label style="font-size: 10px;">Harmonic Speed Division</label>
-                    <select id="presetHarmonicDivisionSelect" class="form-select" style="padding: 4px 8px; font-size: 11px;">
-                      <option value="1">1&times; (Match Timeline Length)</option>
-                      <option value="2">2&times; (Double Speed / 2 Cycles)</option>
-                      <option value="3">3&times; (Triple Speed / 3 Cycles)</option>
-                      <option value="4">4&times; (Quad Speed / 4 Cycles)</option>
-                    </select>
-                  </div>
-                </div>
-                <!-- Visual Sync Alignment Bar -->
-                <div id="presetSyncBadge" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 10px; font-size: 10px; display: flex; align-items: center; justify-content: space-between;">
-                  <span id="presetSyncStatusText" style="color: var(--text-muted);">Active Timeline: <strong style="color: var(--accent-red);" id="presetActiveTimelineLen">48</strong> frames</span>
-                  <span id="presetSyncLoopText" style="color: #4ade80; font-weight: 600;">✓ Seamless 1:1 Loop</span>
-                </div>
-              </div>
-            </div>
 
             <!-- Action buttons -->
             <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-subtle);">
