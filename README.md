@@ -24,7 +24,7 @@ ESP32-S3 firmware to drive the matrix and play animations
   - **Physical Triggers:** Support for external hardware pushbuttons (e.g., wearable/costume triggers), directly wired on via a separate device using ESP-Now.
 
 ## Website
-Animatrix LED Studio companion web app for creating animations
+Animatrix LED Studio companion web app for creating animations. Preview it at https://joymonkey.github.io/animatrix/
   - Visual editor with frame-by-frame drawing tools and LED bloom/visor simulation.
   - Multi-frame timeline sequencer with undo/redo and variable frame rates.
   - Procedural generators: Cylon/KITT sweeps, robotic eye gestures, audio spectrum visualizers, breathing pulses, and text marquees. All of which can be mixed together into single animations.
