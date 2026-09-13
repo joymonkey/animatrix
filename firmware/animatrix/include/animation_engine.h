@@ -22,12 +22,20 @@ inline uint8_t hexToByte(char h, char l) {
 }
 
 // ==============================================================================
-// Loop Mode Enumeration
+// Loop Mode & Blend Mode Enumerations
 // ==============================================================================
+#define MAX_MATRIX_LEDS 144
+
 enum LoopMode {
     LOOP_INFINITE,
     LOOP_ONCE,
     LOOP_PING_PONG
+};
+
+enum TransitionBlendMode {
+    BLEND_NONE = 0,
+    BLEND_ADDITIVE,
+    BLEND_CROSSFADE
 };
 
 // ==============================================================================
@@ -48,13 +56,19 @@ public:
         _loopMode(LOOP_INFINITE),
         _lastFrameTime(0),
         _cycleCount(0),
-        _brightnessMultiplier(1.0f)
+        _brightnessMultiplier(1.0f),
+        _blendMode(BLEND_NONE),
+        _blendProgress(0.0f),
+        _blendBufferWidth(0),
+        _blendBufferHeight(0)
     {
         strncpy(_animName, "none", sizeof(_animName) - 1);
         strncpy(_activeFilename, "", sizeof(_activeFilename) - 1);
+        memset(_lastRenderedBuffer, 0, sizeof(_lastRenderedBuffer));
+        memset(_blendFromBuffer, 0, sizeof(_blendFromBuffer));
     }
 
-    bool loadAnimation(const char* filepath) {
+    bool loadAnimation(const char* filepath, bool renderFirstFrame = true) {
         Serial.printf("[AnimEngine] Loading '%s'...\n", filepath);
 
         File file = LittleFS.open(filepath, "r");
@@ -121,9 +135,22 @@ public:
         Serial.printf("[AnimEngine] Loaded '%s' successfully (%u frames, %ux%u @ %u FPS, loop: %s)\n",
                       _animName, _totalFrames, _animWidth, _animHeight, _fps, loopStr);
 
-        // Render first frame immediately
-        renderCurrentFrame();
+        // Render first frame immediately only if requested
+        if (renderFirstFrame) {
+            renderCurrentFrame();
+        }
         return true;
+    }
+
+    void reset() {
+        _isLoaded = false;
+        _isPlaying = false;
+        _totalFrames = 0;
+        _currentFrame = 0;
+        _cycleCount = 0;
+        _brightnessMultiplier = 1.0f;
+        _blendMode = BLEND_NONE;
+        _doc.clear();
     }
 
     void renderCurrentFrame() {
@@ -147,13 +174,33 @@ public:
             for (int x = 0; x < _animWidth && x < dispW; x++) {
                 int charIdx = (y * _animWidth + x) * 2;
                 uint8_t rawBrightness = hexToByte(hexStr[charIdx], hexStr[charIdx + 1]);
-                uint8_t brightness = (uint8_t)(rawBrightness * _brightnessMultiplier);
-                displayMatrix->drawPixel(x, y, brightness);
+                uint8_t finalBrightness = rawBrightness;
+
+                if (_blendMode == BLEND_ADDITIVE) {
+                    uint8_t fromPixel = (x < _blendBufferWidth && y < _blendBufferHeight && (y * _blendBufferWidth + x) < MAX_MATRIX_LEDS) 
+                                        ? _blendFromBuffer[y * _blendBufferWidth + x] : 0;
+                    uint16_t outgoing = (uint16_t)(fromPixel * (1.0f - _blendProgress));
+                    uint16_t incoming = (uint16_t)(rawBrightness * _blendProgress);
+                    uint16_t sum = outgoing + incoming;
+                    finalBrightness = (sum > 255) ? 255 : (uint8_t)sum;
+                } else if (_blendMode == BLEND_CROSSFADE) {
+                    uint8_t fromPixel = (x < _blendBufferWidth && y < _blendBufferHeight && (y * _blendBufferWidth + x) < MAX_MATRIX_LEDS) 
+                                        ? _blendFromBuffer[y * _blendBufferWidth + x] : 0;
+                    finalBrightness = (uint8_t)(fromPixel * (1.0f - _blendProgress) + rawBrightness * _blendProgress);
+                } else {
+                    finalBrightness = (uint8_t)(rawBrightness * _brightnessMultiplier);
+                }
+
+                if ((y * _animWidth + x) < MAX_MATRIX_LEDS) {
+                    _lastRenderedBuffer[y * _animWidth + x] = finalBrightness;
+                }
+
+                displayMatrix->drawPixel(x, y, finalBrightness);
             }
         }
     }
 
-    void stepNextFrame() {
+    void stepNextFrame(bool render = true) {
         if (!_isLoaded || _totalFrames <= 1) return;
 
         bool cycleEnded = false;
@@ -190,17 +237,92 @@ public:
             _cycleCount++;
         }
 
-        renderCurrentFrame();
+        if (render) {
+            renderCurrentFrame();
+        }
     }
 
-    void update() {
-        if (!_isLoaded || !_isPlaying) return;
+    bool update(bool render = true) {
+        if (!_isLoaded || !_isPlaying) return false;
 
         uint32_t now = millis();
         if (now - _lastFrameTime >= _frameDelayMs) {
             _lastFrameTime = now;
-            stepNextFrame();
+            stepNextFrame(render);
+            return true;
         }
+        return false;
+    }
+
+    uint32_t getFramesRemainingInCycle() const {
+        if (!_isLoaded || _totalFrames <= 1) return 0;
+        if (_loopMode == LOOP_INFINITE || _loopMode == LOOP_ONCE) {
+            return (_totalFrames > _currentFrame + 1) ? ((_totalFrames - 1) - _currentFrame) : 0;
+        } else if (_loopMode == LOOP_PING_PONG) {
+            if (_pingPongDir == 1) {
+                uint32_t forwardLeft = (_totalFrames > _currentFrame + 1) ? ((_totalFrames - 1) - _currentFrame) : 0;
+                uint32_t returnFrames = _totalFrames - 1;
+                return forwardLeft + returnFrames;
+            } else {
+                return _currentFrame;
+            }
+        }
+        return 0;
+    }
+
+    bool getFramePixels(uint8_t* dest, size_t maxLen) const {
+        if (!_isLoaded || _totalFrames == 0 || !dest) return false;
+        JsonArrayConst frames = _doc["frames"].as<JsonArrayConst>();
+        const char* hexStr = frames[_currentFrame] | "";
+        size_t expectedLen = _animWidth * _animHeight * 2;
+        if (strlen(hexStr) < expectedLen) return false;
+
+        size_t numPixels = _animWidth * _animHeight;
+        if (numPixels > maxLen) numPixels = maxLen;
+
+        for (size_t i = 0; i < numPixels; i++) {
+            dest[i] = hexToByte(hexStr[i * 2], hexStr[i * 2 + 1]);
+        }
+        return true;
+    }
+
+    void swap(AnimationEngine& other) {
+        _doc = std::move(other._doc);
+        std::swap(_isLoaded, other._isLoaded);
+        std::swap(_isPlaying, other._isPlaying);
+        std::swap(_animWidth, other._animWidth);
+        std::swap(_animHeight, other._animHeight);
+        std::swap(_fps, other._fps);
+        std::swap(_frameDelayMs, other._frameDelayMs);
+        std::swap(_totalFrames, other._totalFrames);
+        std::swap(_currentFrame, other._currentFrame);
+        std::swap(_pingPongDir, other._pingPongDir);
+        std::swap(_loopMode, other._loopMode);
+        std::swap(_lastFrameTime, other._lastFrameTime);
+        std::swap(_cycleCount, other._cycleCount);
+        std::swap(_brightnessMultiplier, other._brightnessMultiplier);
+        std::swap(_blendMode, other._blendMode);
+        std::swap(_blendProgress, other._blendProgress);
+        std::swap(_blendBufferWidth, other._blendBufferWidth);
+        std::swap(_blendBufferHeight, other._blendBufferHeight);
+
+        char tmp[48];
+        memcpy(tmp, _animName, sizeof(tmp));
+        memcpy(_animName, other._animName, sizeof(tmp));
+        memcpy(other._animName, tmp, sizeof(tmp));
+
+        memcpy(tmp, _activeFilename, sizeof(tmp));
+        memcpy(_activeFilename, other._activeFilename, sizeof(tmp));
+        memcpy(other._activeFilename, tmp, sizeof(tmp));
+
+        uint8_t bufTmp[MAX_MATRIX_LEDS];
+        memcpy(bufTmp, _lastRenderedBuffer, sizeof(bufTmp));
+        memcpy(_lastRenderedBuffer, other._lastRenderedBuffer, sizeof(bufTmp));
+        memcpy(other._lastRenderedBuffer, bufTmp, sizeof(bufTmp));
+
+        memcpy(bufTmp, _blendFromBuffer, sizeof(bufTmp));
+        memcpy(_blendFromBuffer, other._blendFromBuffer, sizeof(bufTmp));
+        memcpy(other._blendFromBuffer, bufTmp, sizeof(bufTmp));
     }
 
     void pause() {
@@ -249,6 +371,28 @@ public:
     }
     float getBrightnessMultiplier() const { return _brightnessMultiplier; }
 
+    void snapshotForTransition(TransitionBlendMode mode) {
+        memcpy(_blendFromBuffer, _lastRenderedBuffer, sizeof(_blendFromBuffer));
+        _blendBufferWidth = _animWidth;
+        _blendBufferHeight = _animHeight;
+        _blendMode = mode;
+        _blendProgress = 0.0f;
+    }
+
+    void setBlendProgress(float progress) {
+        if (progress < 0.0f) progress = 0.0f;
+        if (progress > 1.0f) progress = 1.0f;
+        _blendProgress = progress;
+        renderCurrentFrame();
+    }
+
+    void endTransition() {
+        _blendMode = BLEND_NONE;
+        _blendProgress = 1.0f;
+    }
+
+    TransitionBlendMode getBlendMode() const { return _blendMode; }
+
 private:
     JsonDocument _doc;
     bool _isLoaded;
@@ -266,6 +410,12 @@ private:
     uint32_t _lastFrameTime;
     uint32_t _cycleCount;
     float _brightnessMultiplier;
+    TransitionBlendMode _blendMode;
+    float _blendProgress;
+    uint16_t _blendBufferWidth;
+    uint16_t _blendBufferHeight;
+    uint8_t _lastRenderedBuffer[MAX_MATRIX_LEDS];
+    uint8_t _blendFromBuffer[MAX_MATRIX_LEDS];
 };
 
 #endif // ANIMATION_ENGINE_H

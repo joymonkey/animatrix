@@ -223,13 +223,12 @@ void animationTask(void *pvParameters) {
             }
         }
 
-        // Advance script choreography if active
+        // Advance script choreography if active, otherwise advance standalone animation
         if (scriptEngine.isActive()) {
             scriptEngine.update(engine);
+        } else {
+            engine.update();
         }
-
-        // Advance animation frame if due
-        engine.update();
 
         // Periodically sync status with Core 0 (every 100ms)
         uint32_t now = millis();

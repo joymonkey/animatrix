@@ -22,8 +22,8 @@
       "file": "visor_breathe_16x9.json",
       "repeat": 0,
       "transition": {
-        "type": "fade",
-        "duration_ms": 300
+        "type": "additive",
+        "lead_frames": 8
       }
     }
   ]
