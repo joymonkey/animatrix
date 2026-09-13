@@ -7,10 +7,16 @@
 // ==============================================================================
 // Heartbeat Status Indicator (Waveshare ESP32-S3 Zero NeoPixel on GPIO 21)
 //
-// States:
-//  - Solid Yellow: Animation JSON actively playing
-//  - Slow blink Green/Blue: Wi-Fi enabled & healthy idle
-//  - Slow blink Green/Off: Wi-Fi disabled & healthy idle ("everything okay")
+// Dynamic multi-state slow blink:
+//  - Green:  System running / healthy heartbeat (always present)
+//  - Blue:   Wi-Fi active (SoftAP / STA)
+//  - Yellow: Matrix animation actively playing
+//
+// Combinations:
+//  - All 3 active:      Green -> Blue -> Yellow
+//  - Running + Wi-Fi:   Green -> Blue
+//  - Running + Playing: Green -> Yellow
+//  - Running only:      Green -> Off
 // ==============================================================================
 class HeartbeatIndicator {
 public:
@@ -19,31 +25,44 @@ public:
     }
 
     static void update(bool isPlaying, bool isWifiEnabled) {
-        if (isPlaying) {
-            // Solid Yellow (Red + Green at low brightness)
-            neopixelWrite(PIN_RGB_LED, HEARTBEAT_BRIGHTNESS, HEARTBEAT_BRIGHTNESS, 0);
-            return;
+        // Collect active status colors for this cycle
+        uint8_t colors[4];
+        uint8_t count = 0;
+
+        // 1. Green = Base system heartbeat (always alive)
+        colors[count++] = 1;
+
+        // 2. Blue = Wi-Fi active
+        if (isWifiEnabled) {
+            colors[count++] = 2;
         }
 
-        // Slow blink toggles every HEARTBEAT_BLINK_MS
-        bool phase = ((millis() / HEARTBEAT_BLINK_MS) % 2) == 0;
+        // 3. Yellow = Animation actively playing
+        if (isPlaying) {
+            colors[count++] = 3;
+        }
 
-        if (isWifiEnabled) {
-            if (phase) {
-                // Phase 1: Green
+        // If only Green is active, add Off phase for a standard heartbeat pulse
+        if (count == 1) {
+            colors[count++] = 0;
+        }
+
+        uint32_t step = (millis() / HEARTBEAT_BLINK_MS) % count;
+        uint8_t activeColor = colors[step];
+
+        switch (activeColor) {
+            case 1: // Green
                 neopixelWrite(PIN_RGB_LED, 0, HEARTBEAT_BRIGHTNESS, 0);
-            } else {
-                // Phase 2: Blue
+                break;
+            case 2: // Blue
                 neopixelWrite(PIN_RGB_LED, 0, 0, HEARTBEAT_BRIGHTNESS);
-            }
-        } else {
-            if (phase) {
-                // Phase 1: Green
-                neopixelWrite(PIN_RGB_LED, 0, HEARTBEAT_BRIGHTNESS, 0);
-            } else {
-                // Phase 2: Off
+                break;
+            case 3: // Yellow (Red + Green)
+                neopixelWrite(PIN_RGB_LED, HEARTBEAT_BRIGHTNESS, HEARTBEAT_BRIGHTNESS, 0);
+                break;
+            default: // Off
                 neopixelWrite(PIN_RGB_LED, 0, 0, 0);
-            }
+                break;
         }
     }
 };

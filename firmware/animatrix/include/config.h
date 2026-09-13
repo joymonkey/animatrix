@@ -29,7 +29,7 @@
 // 3. Heartbeat Indicator Settings
 // ==============================================================================
 #define HEARTBEAT_BRIGHTNESS    3    // Low brightness (~3/255)
-#define HEARTBEAT_BLINK_MS      1000 // Slow blink phase interval (1s each state)
+#define HEARTBEAT_BLINK_MS      800  // Slow blink phase interval (800ms each state: Green -> Blue -> Yellow)
 
 // ==============================================================================
 // 4. I2C Bus & IS31FL3731 Settings

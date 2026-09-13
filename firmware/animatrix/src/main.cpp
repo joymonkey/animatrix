@@ -154,7 +154,7 @@ void animationTask(void *pvParameters) {
                     bool wasPlaying = engine.isPlaying();
                     engine.pause();
 
-                    // Set playing status so heartbeat LED lights up solid yellow
+                    // Set playing status so heartbeat LED includes yellow in its cycle
                     if (xSemaphoreTake(statusMutex, portMAX_DELAY) == pdTRUE) {
                         systemStatus.isPlaying = true;
                         xSemaphoreGive(statusMutex);
