@@ -1,7 +1,7 @@
 {
   "$schema": "animatrix-v2",
   "name": "visor_breathe_40x3",
-  "author": "Maker",
+  "author": "joymonkey",
   "matrix": {
     "width": 40,
     "height": 3,

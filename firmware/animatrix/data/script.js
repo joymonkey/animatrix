@@ -24,6 +24,10 @@ const rebootModal = document.getElementById('rebootModal');
 const rebootMsg = document.getElementById('rebootMsg');
 
 let currentActiveMatrix = 'adafruit_16x9';
+let currentActiveWidth = 16;
+let currentActiveHeight = 9;
+let allAnimations = [];
+let filterByActiveResolution = true;
 let isRebooting = false;
 
 // ==============================================================================
@@ -55,10 +59,20 @@ async function fetchStatus() {
         // Matrix Hardware Telemetry
         if (data.matrix) {
             const rawType = (data.matrix.type || '--').toLowerCase();
+            const prevWidth = currentActiveWidth;
+            const prevHeight = currentActiveHeight;
             currentActiveMatrix = rawType;
+            currentActiveWidth = data.matrix.width || ((rawType === 'custom_40x3' || rawType === 'custom_3x40') ? 40 : 16);
+            currentActiveHeight = data.matrix.height || ((rawType === 'custom_40x3' || rawType === 'custom_3x40') ? 3 : 9);
+
             matrixType.textContent = (rawType === 'custom_40x3' || rawType === 'custom_3x40') ? '40x3 VISOR' : '16x9 ADA';
-            matrixRes.textContent = `${data.matrix.width || 0} x ${data.matrix.height || 0}`;
+            matrixRes.textContent = `${currentActiveWidth} x ${currentActiveHeight}`;
             i2cAddr.textContent = data.matrix.found ? `0x${(data.matrix.i2c_addr || 0).toString(16).toUpperCase()}` : 'N/A';
+
+            // Re-render dropdown if hardware dimensions changed
+            if (prevWidth !== currentActiveWidth || prevHeight !== currentActiveHeight) {
+                renderAnimationDropdown();
+            }
 
             // Keep bottom selector in sync if not actively focused
             if (matrixSelect && document.activeElement !== matrixSelect) {
@@ -174,7 +188,7 @@ async function submitSsidChange(inputId) {
 }
 
 // ==============================================================================
-// Animation Sequences List
+// Animation Sequences List & Resolution Filtering
 // ==============================================================================
 async function fetchAnimationList() {
     if (isRebooting) return;
@@ -184,30 +198,70 @@ async function fetchAnimationList() {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
 
-        const currentVal = animSelect.value;
-        animSelect.innerHTML = '';
-
-        if (!data.files || data.files.length === 0) {
-            const opt = document.createElement('option');
-            opt.value = '';
-            opt.textContent = 'NO ANIMATIONS ON BOARD';
-            animSelect.appendChild(opt);
-            return;
-        }
-
-        data.files.forEach(f => {
-            const opt = document.createElement('option');
-            opt.value = f.name;
-            const sizeKb = (f.size / 1024).toFixed(1);
-            opt.textContent = `${f.name.replace('.json', '').toUpperCase()} (${sizeKb} KB)`;
-            animSelect.appendChild(opt);
-        });
-
-        if (currentVal && [...animSelect.options].some(o => o.value === currentVal)) {
-            animSelect.value = currentVal;
-        }
+        allAnimations = data.files || [];
+        renderAnimationDropdown();
     } catch (err) {
         console.warn('Could not fetch animations list:', err);
+    }
+}
+
+function toggleMatrixFilter() {
+    filterByActiveResolution = !filterByActiveResolution;
+    renderAnimationDropdown();
+}
+
+function renderAnimationDropdown() {
+    const filterBtn = document.getElementById('filterToggleBtn');
+    const currentVal = animSelect.value;
+    animSelect.innerHTML = '';
+
+    const resLabel = `${currentActiveWidth}x${currentActiveHeight}`;
+    if (filterBtn) {
+        if (filterByActiveResolution) {
+            filterBtn.textContent = `${resLabel} ONLY`;
+            filterBtn.className = 'btn-filter-toggle';
+            filterBtn.title = `Currently showing only animations for ${resLabel}. Click to show all files.`;
+        } else {
+            filterBtn.textContent = 'ALL FILES';
+            filterBtn.className = 'btn-filter-toggle all-mode';
+            filterBtn.title = `Currently showing all files. Click to filter by ${resLabel}.`;
+        }
+    }
+
+    if (!allAnimations || allAnimations.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'NO ANIMATIONS ON BOARD';
+        animSelect.appendChild(opt);
+        return;
+    }
+
+    // Filter files by active matrix resolution
+    const matchingFiles = filterByActiveResolution
+        ? allAnimations.filter(f => f.width === currentActiveWidth && f.height === currentActiveHeight)
+        : allAnimations;
+
+    if (matchingFiles.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = `NO ${resLabel} SEQUENCES (CLICK TOGGLE TO SHOW ALL)`;
+        animSelect.appendChild(opt);
+        return;
+    }
+
+    matchingFiles.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.name;
+        const sizeKb = (f.size / 1024).toFixed(1);
+        const rawTitle = f.title || f.name.replace('.json', '');
+        const displayName = rawTitle.replace(/_/g, ' ').toUpperCase();
+        const dimStr = (f.width && f.height) ? ` [${f.width}x${f.height}]` : '';
+        opt.textContent = `${displayName}${dimStr} (${sizeKb} KB)`;
+        animSelect.appendChild(opt);
+    });
+
+    if (currentVal && [...animSelect.options].some(o => o.value === currentVal)) {
+        animSelect.value = currentVal;
     }
 }
 
@@ -281,6 +335,15 @@ async function selectMatrixHardware(newType) {
 
         if (resp.ok) {
             currentActiveMatrix = newType;
+            if (newType === 'custom_40x3' || newType === 'custom_3x40') {
+                currentActiveWidth = 40;
+                currentActiveHeight = 3;
+            } else {
+                currentActiveWidth = 16;
+                currentActiveHeight = 9;
+            }
+            renderAnimationDropdown();
+
             if (saveIndicator) {
                 saveIndicator.textContent = 'PERSISTED';
                 saveIndicator.className = 'save-indicator saved';
@@ -347,6 +410,14 @@ async function handleFileUpload(file) {
 
     try {
         const text = await file.text();
+        let uploadDim = null;
+        try {
+            const parsed = JSON.parse(text);
+            if (parsed.matrix && parsed.matrix.width && parsed.matrix.height) {
+                uploadDim = { width: parsed.matrix.width, height: parsed.matrix.height };
+            }
+        } catch (_) {}
+
         const resp = await fetch('/api/upload', {
             method: 'POST',
             headers: {
@@ -357,9 +428,15 @@ async function handleFileUpload(file) {
         });
 
         if (resp.ok) {
-            setStatus(`Loaded & playing ${file.name}!`);
+            if (uploadDim && (uploadDim.width !== currentActiveWidth || uploadDim.height !== currentActiveHeight)) {
+                setStatus(`Uploaded ${file.name} (${uploadDim.width}x${uploadDim.height}), but active matrix is ${currentActiveWidth}x${currentActiveHeight}! Switch hardware target or click toggle to view.`);
+            } else {
+                setStatus(`Loaded & playing ${file.name}!`);
+            }
             await fetchAnimationList();
-            animSelect.value = file.name;
+            if (animSelect.querySelector(`option[value="${file.name}"]`)) {
+                animSelect.value = file.name;
+            }
             setTimeout(fetchStatus, 400);
         } else {
             setStatus(`Upload failed: ${resp.status}`, true);

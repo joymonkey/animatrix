@@ -12,6 +12,7 @@
 #include "matrix_driver.h"
 #include "messages.h"
 #include "animation_engine.h"
+#include "script_engine.h"
 #include "heartbeat.h"
 
 // ==============================================================================
@@ -103,14 +104,24 @@ void animationTask(void *pvParameters) {
     }
 
     AnimationEngine engine;
+    ScriptEngine scriptEngine;
 
-    // Load active animation or default animation if present in LittleFS
-    if (LittleFS.exists(ACTIVE_ANIM_FILE)) {
+    // Check for matrix-specific startup script or generic startup script
+    String startupScript = "";
+    String matrixScript = (savedMatrix == "custom_40x3" || savedMatrix == "custom_3x40") ? "/startup_40x3.json" : "/startup_16x9.json";
+
+    if (LittleFS.exists(matrixScript)) {
+        startupScript = matrixScript;
+    } else if (LittleFS.exists("/startup.json")) {
+        startupScript = "/startup.json";
+    }
+
+    if (startupScript.length() > 0) {
+        scriptEngine.loadScript(startupScript.c_str(), engine);
+    } else if (LittleFS.exists(ACTIVE_ANIM_FILE)) {
         engine.loadAnimation(ACTIVE_ANIM_FILE);
-    } else if (LittleFS.exists(DEFAULT_ANIM_FILE)) {
-        engine.loadAnimation(DEFAULT_ANIM_FILE);
     } else {
-        // Initial state if no file present: All LEDs on test pattern
+        // Initial state if no startup script or active animation present: All LEDs on test pattern
         displayMatrix->fillScreen(255);
     }
 
@@ -121,6 +132,11 @@ void animationTask(void *pvParameters) {
         // Check for incoming trigger without blocking animation timing
         if (xQueueReceive(animationQueue, &trigger, 0) == pdTRUE) {
             Serial.printf("[Core 1] Received Trigger: %d\n", trigger.type);
+
+            // Any user trigger terminates active startup choreography script
+            if (scriptEngine.isActive()) {
+                scriptEngine.stop();
+            }
 
             switch (trigger.type) {
                 case TRIGGER_ALL_ON:
@@ -207,6 +223,11 @@ void animationTask(void *pvParameters) {
             }
         }
 
+        // Advance script choreography if active
+        if (scriptEngine.isActive()) {
+            scriptEngine.update(engine);
+        }
+
         // Advance animation frame if due
         engine.update();
 
@@ -243,6 +264,82 @@ void IRAM_ATTR bootButtonISR() {
         lastWifiActivity = currentTime;
         lastIsrTime = currentTime;
     }
+}
+
+// Helper to inspect animation JSON header (matrix width, height, and title)
+// Returns false if file is a script or non-animation file
+static bool extractAnimationMeta(File& file, const String& filename, uint16_t& width, uint16_t& height, String& title) {
+    width = 0;
+    height = 0;
+    title = filename;
+
+    // Filter out system scripts from the animation picker
+    if (filename.startsWith("startup") || filename.startsWith("script")) {
+        return false;
+    }
+
+    // 1. Fast filename pattern extraction (e.g. cylon_40x3.json -> 40, 3)
+    int xPos = filename.lastIndexOf('x');
+    if (xPos > 0 && xPos < filename.length() - 1) {
+        int startW = xPos - 1;
+        while (startW >= 0 && isDigit(filename[startW])) startW--;
+        startW++;
+        int endH = xPos + 1;
+        while (endH < filename.length() && isDigit(filename[endH])) endH++;
+        if (startW < xPos && endH > xPos + 1) {
+            width = filename.substring(startW, xPos).toInt();
+            height = filename.substring(xPos + 1, endH).toInt();
+        }
+    }
+
+    // 2. Read first 512 bytes to extract JSON metadata (name, width, height)
+    char buf[512];
+    file.seek(0);
+    size_t bytesRead = file.readBytes(buf, sizeof(buf) - 1);
+    buf[bytesRead] = '\0';
+
+    // If file is a script (e.g. animatrix-script-v1 or has "steps":), ignore from animation dropdown
+    if (strstr(buf, "\"steps\"") != NULL || strstr(buf, "animatrix-script-v1") != NULL) {
+        return false;
+    }
+
+    // Find "name": "..."
+    const char* pName = strstr(buf, "\"name\"");
+    if (pName) {
+        const char* q1 = strchr(pName + 6, '\"');
+        if (q1) {
+            const char* q2 = strchr(q1 + 1, '\"');
+            if (q2 && (q2 - q1 < 64)) {
+                title = String(q1 + 1).substring(0, q2 - q1 - 1);
+            }
+        }
+    }
+
+    // Find "width": ...
+    const char* pWidth = strstr(buf, "\"width\"");
+    if (pWidth) {
+        const char* col = strchr(pWidth + 7, ':');
+        if (col) {
+            while (*col == ':' || *col == ' ') col++;
+            if (isDigit(*col)) {
+                width = atoi(col);
+            }
+        }
+    }
+
+    // Find "height": ...
+    const char* pHeight = strstr(buf, "\"height\"");
+    if (pHeight) {
+        const char* col = strchr(pHeight + 8, ':');
+        if (col) {
+            while (*col == ':' || *col == ' ') col++;
+            if (isDigit(*col)) {
+                height = atoi(col);
+            }
+        }
+    }
+
+    return true;
 }
 
 void setupNetworkAndIO() {
@@ -471,9 +568,16 @@ void setupNetworkAndIO() {
                 String name = file.name();
                 if (name.startsWith("/")) name = name.substring(1);
                 if (name.endsWith(".json")) {
-                    JsonObject item = arr.add<JsonObject>();
-                    item["name"] = name;
-                    item["size"] = file.size();
+                    uint16_t w = 0, h = 0;
+                    String title = name;
+                    if (extractAnimationMeta(file, name, w, h, title)) {
+                        JsonObject item = arr.add<JsonObject>();
+                        item["name"] = name;
+                        item["size"] = file.size();
+                        item["width"] = w;
+                        item["height"] = h;
+                        item["title"] = title;
+                    }
                 }
                 file = root.openNextFile();
             }

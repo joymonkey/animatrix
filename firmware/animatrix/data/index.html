@@ -55,7 +55,10 @@
             <div class="sequence-select-container">
                 <div class="select-header">
                     <label for="animSelect">SELECT ANIMATION SEQUENCE</label>
-                    <button class="btn-refresh" onclick="fetchAnimationList()" title="Refresh animation list">↻</button>
+                    <div class="select-actions">
+                        <button id="filterToggleBtn" class="btn-filter-toggle" onclick="toggleMatrixFilter()" title="Filter by active matrix resolution">40x3 ONLY</button>
+                        <button class="btn-refresh" onclick="fetchAnimationList()" title="Refresh animation list">↻</button>
+                    </div>
                 </div>
                 <select id="animSelect" class="cyber-select" onchange="onAnimationSelected(this.value)">
                     <option value="">LOADING SEQUENCES...</option>

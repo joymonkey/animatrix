@@ -191,6 +191,43 @@ h2 {
     letter-spacing: 1px;
 }
 
+.select-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.btn-filter-toggle {
+    background: rgba(0, 240, 255, 0.12);
+    border: 1px solid var(--border-accent);
+    color: var(--cyan-glow);
+    font-family: var(--font-heading);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    line-height: 1.2;
+}
+
+.btn-filter-toggle:hover {
+    background: rgba(0, 240, 255, 0.25);
+    box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+}
+
+.btn-filter-toggle.all-mode {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--text-muted);
+}
+
+.btn-filter-toggle.all-mode:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--text-primary);
+}
+
 .btn-refresh {
     background: transparent;
     border: none;

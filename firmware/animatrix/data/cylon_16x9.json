@@ -1,7 +1,7 @@
 {
   "$schema": "animatrix-v2",
   "name": "cylon_sweep_16x9",
-  "author": "Guy-Manuel",
+  "author": "joymonkey",
   "matrix": {
     "width": 16,
     "height": 9,

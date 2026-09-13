@@ -1,7 +1,7 @@
 {
   "$schema": "animatrix-v2",
   "name": "cylon_visor_sweep_40x3",
-  "author": "Guy-Manuel",
+  "author": "joymonkey",
   "matrix": {
     "width": 40,
     "height": 3,

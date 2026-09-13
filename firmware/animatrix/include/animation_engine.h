@@ -46,7 +46,9 @@ public:
         _currentFrame(0),
         _pingPongDir(1),
         _loopMode(LOOP_INFINITE),
-        _lastFrameTime(0)
+        _lastFrameTime(0),
+        _cycleCount(0),
+        _brightnessMultiplier(1.0f)
     {
         strncpy(_animName, "none", sizeof(_animName) - 1);
         strncpy(_activeFilename, "", sizeof(_activeFilename) - 1);
@@ -113,6 +115,8 @@ public:
         _isLoaded = true;
         _isPlaying = true;
         _lastFrameTime = 0;
+        _cycleCount = 0;
+        _brightnessMultiplier = 1.0f;
 
         Serial.printf("[AnimEngine] Loaded '%s' successfully (%u frames, %ux%u @ %u FPS, loop: %s)\n",
                       _animName, _totalFrames, _animWidth, _animHeight, _fps, loopStr);
@@ -142,7 +146,8 @@ public:
         for (int y = 0; y < _animHeight && y < dispH; y++) {
             for (int x = 0; x < _animWidth && x < dispW; x++) {
                 int charIdx = (y * _animWidth + x) * 2;
-                uint8_t brightness = hexToByte(hexStr[charIdx], hexStr[charIdx + 1]);
+                uint8_t rawBrightness = hexToByte(hexStr[charIdx], hexStr[charIdx + 1]);
+                uint8_t brightness = (uint8_t)(rawBrightness * _brightnessMultiplier);
                 displayMatrix->drawPixel(x, y, brightness);
             }
         }
@@ -151,12 +156,19 @@ public:
     void stepNextFrame() {
         if (!_isLoaded || _totalFrames <= 1) return;
 
+        bool cycleEnded = false;
         if (_loopMode == LOOP_INFINITE) {
-            _currentFrame = (_currentFrame + 1) % _totalFrames;
+            if (_currentFrame + 1 >= _totalFrames) {
+                cycleEnded = true;
+                _currentFrame = 0;
+            } else {
+                _currentFrame++;
+            }
         } else if (_loopMode == LOOP_ONCE) {
             if (_currentFrame + 1 < _totalFrames) {
                 _currentFrame++;
             } else {
+                cycleEnded = true;
                 _isPlaying = false; // Finished playback
                 return;
             }
@@ -168,9 +180,14 @@ public:
             } else if (next < 0) {
                 _pingPongDir = 1;
                 _currentFrame = _totalFrames > 1 ? 1 : 0;
+                cycleEnded = true;
             } else {
                 _currentFrame = next;
             }
+        }
+
+        if (cycleEnded) {
+            _cycleCount++;
         }
 
         renderCurrentFrame();
@@ -221,6 +238,17 @@ public:
         return "infinite";
     }
 
+    uint32_t getCycleCount() const { return _cycleCount; }
+    void resetCycleCount() { _cycleCount = 0; }
+    void setLoopMode(LoopMode mode) { _loopMode = mode; }
+    void setBrightnessMultiplier(float factor) {
+        if (factor < 0.0f) factor = 0.0f;
+        if (factor > 1.0f) factor = 1.0f;
+        _brightnessMultiplier = factor;
+        renderCurrentFrame();
+    }
+    float getBrightnessMultiplier() const { return _brightnessMultiplier; }
+
 private:
     JsonDocument _doc;
     bool _isLoaded;
@@ -236,6 +264,8 @@ private:
     int _pingPongDir;
     LoopMode _loopMode;
     uint32_t _lastFrameTime;
+    uint32_t _cycleCount;
+    float _brightnessMultiplier;
 };
 
 #endif // ANIMATION_ENGINE_H

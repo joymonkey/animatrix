@@ -1,0 +1,30 @@
+{
+  "$schema": "animatrix-script-v1",
+  "name": "startup_adafruit_16x9",
+  "author": "joymonkey",
+  "matrix": {
+    "width": 16,
+    "height": 9
+  },
+  "steps": [
+    {
+      "action": "play",
+      "file": "cylon_16x9.json",
+      "repeat": 3,
+      "hold_last_frame_ms": 0,
+      "transition": {
+        "type": "cut",
+        "duration_ms": 0
+      }
+    },
+    {
+      "action": "play",
+      "file": "visor_breathe_16x9.json",
+      "repeat": 0,
+      "transition": {
+        "type": "fade",
+        "duration_ms": 300
+      }
+    }
+  ]
+}
