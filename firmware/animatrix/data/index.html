@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANIMATRIX // Matrix Terminal</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="hud-container">
+        <!-- Header -->
+        <header class="hud-header">
+            <div class="brand">
+                <div class="brand-badge">PROD</div>
+                <h1>ANIMATRIX<span class="highlight">//</span>OS</h1>
+            </div>
+            <div class="system-status-pill" id="connPill">
+                <span class="status-dot"></span>
+                <span id="connStatusText">CONNECTING...</span>
+            </div>
+        </header>
+
+        <!-- Hardware Telemetry Bar -->
+        <div class="telemetry-bar">
+            <div class="telemetry-item">
+                <span class="label">HARDWARE</span>
+                <span class="value" id="matrixType">--</span>
+            </div>
+            <div class="telemetry-item">
+                <span class="label">RESOLUTION</span>
+                <span class="value" id="matrixRes">-- x --</span>
+            </div>
+            <div class="telemetry-item">
+                <span class="label">I2C ADDR</span>
+                <span class="value" id="i2cAddr">--</span>
+            </div>
+            <div class="telemetry-item">
+                <span class="label">FREE HEAP</span>
+                <span class="value" id="freeHeap">-- KB</span>
+            </div>
+        </div>
+
+        <!-- Live Animation Monitor -->
+        <section class="panel monitor-panel">
+            <div class="panel-header">
+                <h2>LIVE SEQUENCE MONITOR</h2>
+                <div class="play-state-indicator" id="playStateBadge">IDLE</div>
+            </div>
+            <div class="anim-meta-grid">
+                <div class="meta-field">
+                    <span class="meta-label">SEQUENCE NAME</span>
+                    <span class="meta-val" id="animName">--</span>
+                </div>
+                <div class="meta-field">
+                    <span class="meta-label">SPEED</span>
+                    <span class="meta-val" id="animFps">-- FPS</span>
+                </div>
+                <div class="meta-field">
+                    <span class="meta-label">FRAME POSITION</span>
+                    <span class="meta-val" id="animFrames">-- / --</span>
+                </div>
+                <div class="meta-field">
+                    <span class="meta-label">LOOP MODE</span>
+                    <span class="meta-val" id="animLoop">--</span>
+                </div>
+            </div>
+
+            <!-- Frame progress bar -->
+            <div class="progress-track">
+                <div class="progress-fill" id="frameProgress"></div>
+            </div>
+        </section>
+
+        <!-- Quick Controls -->
+        <section class="panel control-panel">
+            <div class="panel-header">
+                <h2>HARDWARE CONTROLS</h2>
+            </div>
+            <div class="btn-grid">
+                <button class="btn btn-action" onclick="triggerAction('play')">PLAY</button>
+                <button class="btn btn-action" onclick="triggerAction('pause')">PAUSE</button>
+                <button class="btn btn-accent" onclick="triggerAction('test')">SWIPE TEST</button>
+                <button class="btn btn-warning" onclick="triggerAction('all_on')">ALL ON</button>
+                <button class="btn btn-danger" onclick="triggerAction('all_off')">ALL OFF</button>
+            </div>
+        </section>
+
+        <!-- Animation Upload -->
+        <section class="panel upload-panel">
+            <div class="panel-header">
+                <h2>DEPLOY ANIMATION</h2>
+            </div>
+            <p class="panel-desc">Upload an <code>animatrix-v2</code> JSON sequence exported from Animatrix Studio.</p>
+            
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-icon">⬆</div>
+                <p>Drag & drop animation JSON or click to browse</p>
+                <input type="file" id="fileInput" accept=".json" style="display:none">
+            </div>
+
+            <div id="statusMessage" class="status-msg"></div>
+        </section>
+
+        <footer class="hud-footer">
+            <span>ANIMATRIX FIRMWARE v1.0.0 // ESP32-S3</span>
+            <span>DAFT PUNK VISOR SYSTEM</span>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
