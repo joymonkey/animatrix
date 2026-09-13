@@ -8,12 +8,12 @@
 #include "config.h"
 
 // ==============================================================================
-// Custom 3x40 Matrix Mapping (Charlieplex Flex Board for Helmet Visor)
+// Custom 40x3 Matrix Mapping (Charlieplex Flex Board for Helmet Visor)
 // ==============================================================================
 #define LED_A(a, c) ( ((a)-1)*8 + ((c) < (a) ? ((c)-1) : ((c)-2)) )
 #define LED_B(a, c) ( 72 + ((a)-1)*8 + ((c) < (a) ? ((c)-1) : ((c)-2)) )
 
-const uint8_t matrix_lut_3x40[3][40] = {
+const uint8_t matrix_lut_40x3[3][40] = {
   // Row 0 (Top row, Y=0):
   {
     /* Cols 1-3   */ LED_A(9, 8), LED_A(6, 8), LED_A(3, 8),
@@ -66,34 +66,41 @@ const uint8_t matrix_lut_3x40[3][40] = {
     /* Cols 39-40 */ LED_B(5, 7), LED_B(7, 5)
   }
 };
+#define matrix_lut_3x40 matrix_lut_40x3
 
-class CustomMatrix3x40 : public Adafruit_IS31FL3731 {
+class CustomMatrix40x3 : public Adafruit_IS31FL3731 {
  public:
-  CustomMatrix3x40() : Adafruit_IS31FL3731(40, 3) {}
+  CustomMatrix40x3() : Adafruit_IS31FL3731(40, 3) {}
 
   void drawPixel(int16_t x, int16_t y, uint16_t color) override {
     if ((x < 0) || (x >= 40) || (y < 0) || (y >= 3)) return;
-    uint8_t led_id = matrix_lut_3x40[y][x];
+    uint8_t led_id = matrix_lut_40x3[y][x];
     setLEDPWM(led_id, (uint8_t)min((uint16_t)255, color), _frame);
   }
 };
+typedef CustomMatrix40x3 CustomMatrix3x40;
 
 // ==============================================================================
 // Matrix Driver Instance & Hardware Init
 // ==============================================================================
 
-#if ACTIVE_MATRIX_TYPE == MATRIX_TYPE_ADAFRUIT_16X9
-// Adafruit 16x9 Charlieplexed Matrix (Product #2947)
-static Adafruit_IS31FL3731 hardwareMatrix(16, 9);
-#elif ACTIVE_MATRIX_TYPE == MATRIX_TYPE_CUSTOM_3X40
-// Custom 3x40 Flex Matrix
-static CustomMatrix3x40 hardwareMatrix;
-#else
-#error "Undefined ACTIVE_MATRIX_TYPE in config.h"
-#endif
+// Static instances for selectable matrix hardware targets
+static Adafruit_IS31FL3731 matrixAdafruit16x9(16, 9);
+static CustomMatrix40x3   matrixCustom40x3;
+#define matrixCustom3x40  matrixCustom40x3
 
 // Global pointer used by animation engine and main logic
-static Adafruit_IS31FL3731* displayMatrix = &hardwareMatrix;
+static Adafruit_IS31FL3731* displayMatrix = &matrixAdafruit16x9;
+
+inline bool setMatrixType(const char* type) {
+  if (strcmp(type, "custom_40x3") == 0 || strcmp(type, "custom_3x40") == 0) {
+    displayMatrix = &matrixCustom40x3;
+    return true;
+  } else {
+    displayMatrix = &matrixAdafruit16x9;
+    return true;
+  }
+}
 
 inline bool initMatrixHardware(uint8_t& activeAddr) {
   // Take IS31FL3731 out of hardware shutdown

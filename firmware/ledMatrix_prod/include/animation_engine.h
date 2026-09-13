@@ -6,7 +6,7 @@
 #include <ArduinoJson.h>
 #include "matrix_driver.h"
 
-extern CustomMatrix3x40 matrix;
+extern CustomMatrix40x3 matrix;
 
 void runJsonAnimation(const char* filename) {
     Serial.printf("[Core 1] Running JSON Script: %s\n", filename);

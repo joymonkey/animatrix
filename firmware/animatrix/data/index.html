@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ANIMATRIX // Matrix Terminal</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,20 +14,69 @@
         <!-- Header -->
         <header class="hud-header">
             <div class="brand">
-                <div class="brand-badge">PROD</div>
                 <h1>ANIMATRIX<span class="highlight">//</span>OS</h1>
             </div>
-            <div class="system-status-pill" id="connPill">
-                <span class="status-dot"></span>
-                <span id="connStatusText">CONNECTING...</span>
+            <div class="header-actions">
+                <a href="https://joymonkey.github.io/animatrix/" target="_blank" rel="noopener noreferrer" class="studio-link" title="Open Animatrix LED Studio">
+                    STUDIO ↗
+                </a>
+                <div class="system-status-pill" id="connPill">
+                    <span class="status-dot"></span>
+                    <span id="connStatusText">CONNECTING...</span>
+                </div>
             </div>
         </header>
 
+        <!-- Default SSID Customization Prompt Banner -->
+        <div class="ssid-prompt-banner" id="ssidPromptBanner" style="display: none;">
+            <div class="ssid-prompt-header">
+                <div class="ssid-prompt-title">
+                    <span class="warn-icon">⚠</span> CUSTOMIZE ACCESS POINT NAME
+                </div>
+                <button class="prompt-close-btn" onclick="dismissSsidPrompt()">&times;</button>
+            </div>
+            <p class="ssid-prompt-desc">
+                Your visor is using the default Wi-Fi name <code>Animatrix-Visor</code>. In crowded areas with multiple systems, set a unique SSID to avoid conflicts:
+            </p>
+            <div class="ssid-input-row">
+                <input type="text" id="quickSsidInput" class="cyber-input" placeholder="e.g. Animatrix-Visor-01" maxlength="32">
+                <button class="btn btn-warning" onclick="submitSsidChange('quickSsidInput')">RENAME & REBOOT</button>
+            </div>
+        </div>
+
+        <!-- Primary Hardware Controls & Sequence Picker (Top Section) -->
+        <section class="panel control-panel">
+            <div class="panel-header">
+                <h2>HARDWARE CONTROLS</h2>
+                <div class="play-state-indicator" id="playStateBadge">IDLE</div>
+            </div>
+
+            <!-- Stored Animation Selector -->
+            <div class="sequence-select-container">
+                <div class="select-header">
+                    <label for="animSelect">SELECT ANIMATION SEQUENCE</label>
+                    <button class="btn-refresh" onclick="fetchAnimationList()" title="Refresh animation list">↻</button>
+                </div>
+                <select id="animSelect" class="cyber-select" onchange="onAnimationSelected(this.value)">
+                    <option value="">LOADING SEQUENCES...</option>
+                </select>
+            </div>
+
+            <!-- Action Buttons Grid -->
+            <div class="btn-grid">
+                <button class="btn btn-action" id="btnPlay" onclick="triggerAction('play')">PLAY</button>
+                <button class="btn btn-action" id="btnPause" onclick="triggerAction('pause')">PAUSE</button>
+                <button class="btn btn-accent" onclick="triggerAction('test')">SWIPE TEST</button>
+                <button class="btn btn-warning" onclick="triggerAction('all_on')">ALL ON</button>
+                <button class="btn btn-danger" onclick="triggerAction('all_off')">ALL OFF</button>
+            </div>
+        </section>
+
         <!-- Hardware Telemetry Bar -->
         <div class="telemetry-bar">
-            <div class="telemetry-item">
-                <span class="label">HARDWARE</span>
-                <span class="value" id="matrixType">--</span>
+            <div class="telemetry-item interactive" onclick="scrollToHardware()" title="Tap to configure hardware target">
+                <span class="label">HARDWARE <span class="edit-icon">↓</span></span>
+                <span class="value highlight-val" id="matrixType">--</span>
             </div>
             <div class="telemetry-item">
                 <span class="label">RESOLUTION</span>
@@ -43,11 +92,10 @@
             </div>
         </div>
 
-        <!-- Live Animation Monitor -->
+        <!-- Live Sequence Monitor -->
         <section class="panel monitor-panel">
             <div class="panel-header">
-                <h2>LIVE SEQUENCE MONITOR</h2>
-                <div class="play-state-indicator" id="playStateBadge">IDLE</div>
+                <h2>SEQUENCE MONITOR</h2>
             </div>
             <div class="anim-meta-grid">
                 <div class="meta-field">
@@ -55,59 +103,84 @@
                     <span class="meta-val" id="animName">--</span>
                 </div>
                 <div class="meta-field">
-                    <span class="meta-label">SPEED</span>
-                    <span class="meta-val" id="animFps">-- FPS</span>
+                    <span class="meta-label">FRAMES</span>
+                    <span class="meta-val" id="animFrames">--</span>
                 </div>
                 <div class="meta-field">
-                    <span class="meta-label">FRAME POSITION</span>
-                    <span class="meta-val" id="animFrames">-- / --</span>
+                    <span class="meta-label">SPEED</span>
+                    <span class="meta-val" id="animFps">-- FPS</span>
                 </div>
                 <div class="meta-field">
                     <span class="meta-label">LOOP MODE</span>
                     <span class="meta-val" id="animLoop">--</span>
                 </div>
             </div>
-
-            <!-- Frame progress bar -->
-            <div class="progress-track">
-                <div class="progress-fill" id="frameProgress"></div>
-            </div>
         </section>
 
-        <!-- Quick Controls -->
-        <section class="panel control-panel">
-            <div class="panel-header">
-                <h2>HARDWARE CONTROLS</h2>
-            </div>
-            <div class="btn-grid">
-                <button class="btn btn-action" onclick="triggerAction('play')">PLAY</button>
-                <button class="btn btn-action" onclick="triggerAction('pause')">PAUSE</button>
-                <button class="btn btn-accent" onclick="triggerAction('test')">SWIPE TEST</button>
-                <button class="btn btn-warning" onclick="triggerAction('all_on')">ALL ON</button>
-                <button class="btn btn-danger" onclick="triggerAction('all_off')">ALL OFF</button>
-            </div>
-        </section>
-
-        <!-- Animation Upload -->
+        <!-- Deploy Animation Upload -->
         <section class="panel upload-panel">
             <div class="panel-header">
                 <h2>DEPLOY ANIMATION</h2>
             </div>
-            <p class="panel-desc">Upload an <code>animatrix-v2</code> JSON sequence exported from Animatrix Studio.</p>
-            
             <div class="drop-zone" id="dropZone">
                 <div class="drop-icon">⬆</div>
-                <p>Drag & drop animation JSON or click to browse</p>
+                <p>Tap or drag & drop <code>animatrix-v2</code> JSON</p>
                 <input type="file" id="fileInput" accept=".json" style="display:none">
             </div>
-
+            <div class="studio-banner">
+                <a href="https://joymonkey.github.io/animatrix/" target="_blank" rel="noopener noreferrer" class="studio-banner-link">
+                    ⚡ CREATE SEQUENCES IN ANIMATRIX LED STUDIO ↗
+                </a>
+            </div>
             <div id="statusMessage" class="status-msg"></div>
         </section>
 
+        <!-- Matrix Hardware Target Selection (Bottom) -->
+        <section class="panel hardware-panel" id="hardwareSection">
+            <div class="panel-header">
+                <h2>HARDWARE TARGET</h2>
+                <span class="save-indicator" id="saveIndicator">PERSISTED</span>
+            </div>
+            <div class="hardware-select-row">
+                <label for="matrixSelect">ACTIVE MATRIX PROFILE:</label>
+                <select id="matrixSelect" class="cyber-select" onchange="selectMatrixHardware(this.value)">
+                    <option value="adafruit_16x9">ADAFRUIT 16x9 CHARLIEPLEX (#2947)</option>
+                    <option value="custom_40x3">CUSTOM 40x3 VISOR FLEX MATRIX</option>
+                </select>
+            </div>
+            <p class="panel-desc">Hardware selection is saved to non-volatile storage (NVS) and persists across power cycles.</p>
+        </section>
+
+        <!-- Wi-Fi Access Point Customization (Bottom) -->
+        <section class="panel wifi-panel" id="wifiSection">
+            <div class="panel-header">
+                <h2>WI-FI ACCESS POINT</h2>
+                <span class="save-indicator" id="wifiIndicator">CURRENT</span>
+            </div>
+            <div class="hardware-select-row">
+                <label for="bottomSsidInput">NETWORK SSID NAME:</label>
+                <div class="input-with-btn">
+                    <input type="text" id="bottomSsidInput" class="cyber-input" placeholder="Animatrix-Visor" maxlength="32">
+                    <button class="btn btn-accent" onclick="submitSsidChange('bottomSsidInput')">RENAME</button>
+                </div>
+            </div>
+            <p class="panel-desc">Saved to NVS flash. Updating reboots the system to broadcast the new SSID name.</p>
+        </section>
+
+        <!-- Footer -->
         <footer class="hud-footer">
-            <span>ANIMATRIX FIRMWARE v1.0.0 // ESP32-S3</span>
-            <span>DAFT PUNK VISOR SYSTEM</span>
+            <span>ANIMATRIX FIRMWARE v1.2.0 // ESP32-S3</span>
+            <span>LED MATRIX CONTROL SYSTEM</span>
         </footer>
+    </div>
+
+    <!-- Fullscreen Reboot Overlay Modal -->
+    <div class="modal-backdrop" id="rebootModal">
+        <div class="modal-sheet reboot-sheet">
+            <div class="reboot-spinner">⚡</div>
+            <h3>ACCESS POINT RESTARTING</h3>
+            <p id="rebootMsg">Network name updated. Please reconnect your phone to the new Wi-Fi network.</p>
+        </div>
     </div>
 
     <script src="script.js"></script>

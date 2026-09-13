@@ -1,3 +1,6 @@
+// ==============================================================================
+// DOM Elements
+// ==============================================================================
 const connPill = document.getElementById('connPill');
 const connStatusText = document.getElementById('connStatusText');
 const matrixType = document.getElementById('matrixType');
@@ -9,12 +12,23 @@ const animName = document.getElementById('animName');
 const animFps = document.getElementById('animFps');
 const animFrames = document.getElementById('animFrames');
 const animLoop = document.getElementById('animLoop');
-const frameProgress = document.getElementById('frameProgress');
+const animSelect = document.getElementById('animSelect');
+const matrixSelect = document.getElementById('matrixSelect');
+const saveIndicator = document.getElementById('saveIndicator');
+const wifiIndicator = document.getElementById('wifiIndicator');
 const statusMessage = document.getElementById('statusMessage');
+const ssidPromptBanner = document.getElementById('ssidPromptBanner');
+const quickSsidInput = document.getElementById('quickSsidInput');
+const bottomSsidInput = document.getElementById('bottomSsidInput');
+const rebootModal = document.getElementById('rebootModal');
+const rebootMsg = document.getElementById('rebootMsg');
 
-// Polling interval
-let pollTimer = null;
+let currentActiveMatrix = 'adafruit_16x9';
+let isRebooting = false;
 
+// ==============================================================================
+// UI Feedback
+// ==============================================================================
 function setStatus(msg, isError = false) {
     statusMessage.textContent = msg;
     statusMessage.style.color = isError ? 'var(--red-glow)' : 'var(--cyan-glow)';
@@ -23,7 +37,12 @@ function setStatus(msg, isError = false) {
     }, 4000);
 }
 
+// ==============================================================================
+// Telemetry & Status Polling
+// ==============================================================================
 async function fetchStatus() {
+    if (isRebooting) return;
+
     try {
         const resp = await fetch('/api/status');
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -33,11 +52,40 @@ async function fetchStatus() {
         connPill.classList.add('connected');
         connStatusText.textContent = 'ONLINE';
 
-        // Matrix Hardware
+        // Matrix Hardware Telemetry
         if (data.matrix) {
-            matrixType.textContent = (data.matrix.type || '--').toUpperCase();
+            const rawType = (data.matrix.type || '--').toLowerCase();
+            currentActiveMatrix = rawType;
+            matrixType.textContent = (rawType === 'custom_40x3' || rawType === 'custom_3x40') ? '40x3 VISOR' : '16x9 ADA';
             matrixRes.textContent = `${data.matrix.width || 0} x ${data.matrix.height || 0}`;
-            i2cAddr.textContent = data.matrix.found ? `0x${(data.matrix.i2c_addr || 0).toString(16).toUpperCase()}` : 'DISCONNECTED';
+            i2cAddr.textContent = data.matrix.found ? `0x${(data.matrix.i2c_addr || 0).toString(16).toUpperCase()}` : 'N/A';
+
+            // Keep bottom selector in sync if not actively focused
+            if (matrixSelect && document.activeElement !== matrixSelect) {
+                if (rawType === 'custom_40x3' || rawType === 'custom_3x40') {
+                    matrixSelect.value = 'custom_40x3';
+                } else if (rawType === 'adafruit_16x9') {
+                    matrixSelect.value = 'adafruit_16x9';
+                }
+            }
+        }
+
+        // Wi-Fi Telemetry & Default SSID Prompt
+        if (data.wifi) {
+            const currentSsid = data.wifi.ssid || 'Animatrix-Visor';
+            if (bottomSsidInput && document.activeElement !== bottomSsidInput) {
+                bottomSsidInput.value = currentSsid;
+            }
+
+            const dismissed = sessionStorage.getItem('dismiss_ssid_prompt');
+            if (data.wifi.is_default && !dismissed) {
+                ssidPromptBanner.style.display = 'block';
+                if (quickSsidInput && !quickSsidInput.value) {
+                    quickSsidInput.value = currentSsid;
+                }
+            } else {
+                ssidPromptBanner.style.display = 'none';
+            }
         }
 
         // System
@@ -45,48 +93,149 @@ async function fetchStatus() {
             freeHeap.textContent = `${Math.round((data.system.free_heap || 0) / 1024)} KB`;
         }
 
-        // Animation
+        // Animation Telemetry
         if (data.animation) {
             const anim = data.animation;
-            animName.textContent = anim.name || 'NONE';
-            animFps.textContent = `${anim.fps || 0} FPS`;
-            animFrames.textContent = `${(anim.current_frame || 0) + 1} / ${anim.total_frames || 0}`;
+            animName.textContent = (anim.name || 'NONE').toUpperCase();
+            animFps.textContent = anim.fps ? `${anim.fps} FPS` : '--';
+            animFrames.textContent = anim.total_frames ? `${anim.total_frames} FRAMES` : '--';
             animLoop.textContent = (anim.loop || '--').toUpperCase();
 
             if (anim.playing) {
                 playStateBadge.textContent = 'PLAYING';
-                playStateBadge.classList.add('active');
+                playStateBadge.className = 'play-state-indicator active';
             } else if (anim.loaded) {
                 playStateBadge.textContent = 'PAUSED';
-                playStateBadge.classList.remove('active');
+                playStateBadge.className = 'play-state-indicator paused';
             } else {
                 playStateBadge.textContent = 'IDLE';
-                playStateBadge.classList.remove('active');
-            }
-
-            if (anim.total_frames > 0) {
-                const percent = Math.min(100, Math.round(((anim.current_frame + 1) / anim.total_frames) * 100));
-                frameProgress.style.width = `${percent}%`;
-            } else {
-                frameProgress.style.width = '0%';
+                playStateBadge.className = 'play-state-indicator';
             }
         }
     } catch (err) {
-        connPill.classList.remove('connected');
-        connStatusText.textContent = 'OFFLINE';
+        if (!isRebooting) {
+            connPill.classList.remove('connected');
+            connStatusText.textContent = 'OFFLINE';
+        }
     }
 }
 
-async function triggerAction(action) {
+// ==============================================================================
+// SSID Customization
+// ==============================================================================
+function dismissSsidPrompt() {
+    sessionStorage.setItem('dismiss_ssid_prompt', '1');
+    ssidPromptBanner.style.display = 'none';
+}
+
+async function submitSsidChange(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    const newSsid = input.value.trim();
+    if (newSsid.length === 0 || newSsid.length > 32) {
+        alert('SSID must be between 1 and 32 characters.');
+        return;
+    }
+
+    if (wifiIndicator) {
+        wifiIndicator.textContent = 'SAVING...';
+        wifiIndicator.className = 'save-indicator saving';
+    }
+
+    try {
+        const params = new URLSearchParams();
+        params.append('ssid', newSsid);
+
+        const resp = await fetch('/api/ssid', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        });
+
+        if (resp.ok) {
+            isRebooting = true;
+            if (ssidPromptBanner) ssidPromptBanner.style.display = 'none';
+            if (rebootMsg) {
+                rebootMsg.innerHTML = `SSID changed to <strong>${newSsid}</strong>.<br><br>The ESP32-S3 is restarting. Please reconnect your phone to <strong>${newSsid}</strong> in a few moments.`;
+            }
+            if (rebootModal) {
+                rebootModal.classList.add('visible');
+            }
+        } else {
+            const err = await resp.json();
+            alert('Failed to update SSID: ' + (err.message || resp.statusText));
+            if (wifiIndicator) wifiIndicator.className = 'save-indicator';
+        }
+    } catch (err) {
+        alert('Network error updating SSID: ' + err.message);
+        if (wifiIndicator) wifiIndicator.className = 'save-indicator';
+    }
+}
+
+// ==============================================================================
+// Animation Sequences List
+// ==============================================================================
+async function fetchAnimationList() {
+    if (isRebooting) return;
+
+    try {
+        const resp = await fetch('/api/animations');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+
+        const currentVal = animSelect.value;
+        animSelect.innerHTML = '';
+
+        if (!data.files || data.files.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'NO ANIMATIONS ON BOARD';
+            animSelect.appendChild(opt);
+            return;
+        }
+
+        data.files.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f.name;
+            const sizeKb = (f.size / 1024).toFixed(1);
+            opt.textContent = `${f.name.replace('.json', '').toUpperCase()} (${sizeKb} KB)`;
+            animSelect.appendChild(opt);
+        });
+
+        if (currentVal && [...animSelect.options].some(o => o.value === currentVal)) {
+            animSelect.value = currentVal;
+        }
+    } catch (err) {
+        console.warn('Could not fetch animations list:', err);
+    }
+}
+
+function onAnimationSelected(filename) {
+    if (!filename) return;
+    triggerAction('play', filename);
+}
+
+// ==============================================================================
+// Hardware Actions
+// ==============================================================================
+async function triggerAction(action, file = null) {
+    if (isRebooting) return;
+
     try {
         const params = new URLSearchParams();
         params.append('action', action);
 
+        if (action === 'play') {
+            const targetFile = file || animSelect.value;
+            if (targetFile) {
+                params.append('file', targetFile);
+            }
+        }
+
         const resp = await fetch('/api/trigger', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: params.toString()
         });
 
@@ -94,14 +243,72 @@ async function triggerAction(action) {
             setStatus(`Triggered: ${action.toUpperCase()}`);
             fetchStatus();
         } else {
-            setStatus(`Trigger failed: ${resp.status}`, true);
+            setStatus(`Action failed: ${resp.status}`, true);
         }
     } catch (err) {
         setStatus(`Network error: ${err.message}`, true);
     }
 }
 
-// Drag & Drop Upload
+// ==============================================================================
+// Matrix Hardware Selection
+// ==============================================================================
+function scrollToHardware() {
+    const sec = document.getElementById('hardwareSection');
+    if (sec) {
+        sec.scrollIntoView({ behavior: 'smooth' });
+        sec.classList.add('highlight-section');
+        setTimeout(() => sec.classList.remove('highlight-section'), 1500);
+    }
+}
+
+async function selectMatrixHardware(newType) {
+    if (saveIndicator) {
+        saveIndicator.textContent = 'SAVING...';
+        saveIndicator.className = 'save-indicator saving';
+    }
+
+    try {
+        setStatus(`Setting hardware to ${newType}...`);
+        const params = new URLSearchParams();
+        params.append('type', newType);
+
+        const resp = await fetch('/api/matrix', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        });
+
+        if (resp.ok) {
+            currentActiveMatrix = newType;
+            if (saveIndicator) {
+                saveIndicator.textContent = 'PERSISTED';
+                saveIndicator.className = 'save-indicator saved';
+                setTimeout(() => {
+                    if (saveIndicator) saveIndicator.className = 'save-indicator';
+                }, 2500);
+            }
+            setStatus(`Hardware set to ${newType === 'custom_40x3' ? '40x3 VISOR' : '16x9 ADA'}`);
+            setTimeout(fetchStatus, 350);
+        } else {
+            setStatus('Failed to change matrix target', true);
+            if (saveIndicator) {
+                saveIndicator.textContent = 'FAILED';
+                saveIndicator.className = 'save-indicator saving';
+            }
+        }
+    } catch (err) {
+        setStatus(`Error: ${err.message}`, true);
+        if (saveIndicator) {
+            saveIndicator.textContent = 'OFFLINE';
+            saveIndicator.className = 'save-indicator saving';
+        }
+    }
+}
+
+// ==============================================================================
+// Animation Upload
+// ==============================================================================
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 
@@ -123,20 +330,16 @@ dropZone.addEventListener('click', () => fileInput.click());
 
 dropZone.addEventListener('drop', (e) => {
     const files = e.dataTransfer.files;
-    if (files.length > 0) {
-        handleFileUpload(files[0]);
-    }
+    if (files.length > 0) handleFileUpload(files[0]);
 });
 
 fileInput.addEventListener('change', () => {
-    if (fileInput.files.length > 0) {
-        handleFileUpload(fileInput.files[0]);
-    }
+    if (fileInput.files.length > 0) handleFileUpload(fileInput.files[0]);
 });
 
 async function handleFileUpload(file) {
     if (!file.name.endsWith('.json')) {
-        setStatus('Please select an animatrix JSON file.', true);
+        setStatus('Please select a valid .json sequence file', true);
         return;
     }
 
@@ -144,7 +347,6 @@ async function handleFileUpload(file) {
 
     try {
         const text = await file.text();
-        // Send raw JSON matching EspUploader.js contract
         const resp = await fetch('/api/upload', {
             method: 'POST',
             headers: {
@@ -155,8 +357,10 @@ async function handleFileUpload(file) {
         });
 
         if (resp.ok) {
-            setStatus('Animation uploaded and playing!');
-            setTimeout(fetchStatus, 500);
+            setStatus(`Loaded & playing ${file.name}!`);
+            await fetchAnimationList();
+            animSelect.value = file.name;
+            setTimeout(fetchStatus, 400);
         } else {
             setStatus(`Upload failed: ${resp.status}`, true);
         }
@@ -165,6 +369,9 @@ async function handleFileUpload(file) {
     }
 }
 
-// Initial fetch and start polling loop
+// ==============================================================================
+// Initialization
+// ==============================================================================
 fetchStatus();
+fetchAnimationList();
 setInterval(fetchStatus, 1500);

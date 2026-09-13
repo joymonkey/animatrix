@@ -17,7 +17,7 @@
 #define WIFI_TIMEOUT_MS (2 * 60 * 1000) // 2 minutes inactivity timeout
 
 // --- Globals ---
-CustomMatrix3x40 matrix;
+CustomMatrix40x3 matrix;
 AsyncWebServer server(80);
 QueueHandle_t animationQueue;
 

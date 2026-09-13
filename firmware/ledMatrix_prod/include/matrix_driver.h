@@ -13,11 +13,11 @@
 
 #define IS31_I2C_ADDR   0x75  // Default was 0x74, 0x75 when AD is pulled high/bridged
 
-// Custom 3x40 Matrix Mapping for flex board
+// Custom 40x3 Matrix Mapping for flex board
 #define LED_A(a, c) ( ((a)-1)*8 + ((c) < (a) ? ((c)-1) : ((c)-2)) )
 #define LED_B(a, c) ( 72 + ((a)-1)*8 + ((c) < (a) ? ((c)-1) : ((c)-2)) )
 
-const uint8_t matrix_lut_3x40[3][40] = {
+const uint8_t matrix_lut_40x3[3][40] = {
   // Row 0 (Top row, Y=0):
   {
     /* Cols 1-3   */ LED_A(9, 8), LED_A(6, 8), LED_A(3, 8),
@@ -71,13 +71,13 @@ const uint8_t matrix_lut_3x40[3][40] = {
   }
 };
 
-class CustomMatrix3x40 : public Adafruit_IS31FL3731 {
+class CustomMatrix40x3 : public Adafruit_IS31FL3731 {
  public:
-  CustomMatrix3x40() : Adafruit_IS31FL3731(40, 3) {}
+  CustomMatrix40x3() : Adafruit_IS31FL3731(40, 3) {}
 
   void drawPixel(int16_t x, int16_t y, uint16_t color) override {
     if ((x < 0) || (x >= 40) || (y < 0) || (y >= 3)) return;
-    uint8_t led_id = matrix_lut_3x40[y][x];
+    uint8_t led_id = matrix_lut_40x3[y][x];
     setLEDPWM(led_id, (uint8_t)color, _frame);
   }
 };

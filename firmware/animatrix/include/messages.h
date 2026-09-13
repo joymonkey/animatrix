@@ -10,7 +10,8 @@ enum TriggerType {
     TRIGGER_TEST_SWIPE,
     TRIGGER_PLAY_SCRIPT,
     TRIGGER_PAUSE,
-    TRIGGER_RESUME
+    TRIGGER_RESUME,
+    TRIGGER_SET_MATRIX
 };
 
 struct AnimationTrigger {

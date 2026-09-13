@@ -5,9 +5,9 @@
  * Target MCU: Waveshare ESP32-S3 Zero (or any ESP32 / Arduino board)
  *
  * Supported Hardware Profiles:
- *   1. PROFILE_3X40_DISCOVERY : Custom 3x40 Flex PCB (120 LEDs, 6mm pitch)
+ *   1. PROFILE_40X3_DISCOVERY : Custom 40x3 Flex PCB (120 LEDs, 6mm pitch)
  *   2. PROFILE_16X9_ADAFRUIT  : Adafruit 2946 / 2947 16x9 SMD Matrix (144 LEDs)
- *   3. PROFILE_9X16_ADAFRUIT  : Adafruit 2946 / 2947 rotated vertically (9x16)
+ *   3. PROFILE_16X9_ADAFRUIT  : Adafruit 2946 / 2947 rotated vertically (16x9)
  *
  * ESP32-S3 Zero Direct Pinout:
  *   - 5V     -> 5V VBUS (Main supply for IS31FL3731 & LEDs)
@@ -31,9 +31,9 @@
 // -----------------------------------------------------------------------------
 // HARDWARE PROFILE SELECTION
 // -----------------------------------------------------------------------------
-#define PROFILE_3X40_DISCOVERY 1 // Custom 3x40 "Discovery Lite Light" Flex Board
+#define PROFILE_40X3_DISCOVERY 1 // Custom 40x3 "Discovery Lite Light" Flex Board
 #define PROFILE_16X9_ADAFRUIT 2  // Adafruit 2946 / 2947 (16 Cols x 9 Rows Horizontal)
-#define PROFILE_9X16_ADAFRUIT 3  // Adafruit 2946 / 2947 (9 Cols x 16 Rows Vertical)
+#define PROFILE_16X9_ADAFRUIT 3  // Adafruit 2946 / 2947 (9 Cols x 16 Rows Vertical)
 
 // >>> SELECT YOUR ACTIVE BOARD PROFILE HERE <<<
 #define ACTIVE_PROFILE PROFILE_16X9_ADAFRUIT
@@ -47,12 +47,12 @@
 #define IS31_I2C_ADDR 0x75 // I2C address (0x74 default, 0x75 if 0x75 bridged)
 
 // -----------------------------------------------------------------------------
-// 1. Custom 3x40 Matrix Mapping for "Discovery Lite Light" Flex Board
+// 1. Custom 40x3 Matrix Mapping for "Discovery Lite Light" Flex Board
 // -----------------------------------------------------------------------------
 #define LED_A(a, c) (((a) - 1) * 8 + ((c) < (a) ? ((c) - 1) : ((c) - 2)))
 #define LED_B(a, c) (72 + ((a) - 1) * 8 + ((c) < (a) ? ((c) - 1) : ((c) - 2)))
 
-const uint8_t matrix_lut_3x40[3][40] = {
+const uint8_t matrix_lut_40x3[3][40] = {
     // Row 0 (Top row, Y=0):
     {
         /* Cols 1-3   */ LED_A(9, 8), LED_A(6, 8), LED_A(3, 8),
@@ -102,16 +102,16 @@ const uint8_t matrix_lut_3x40[3][40] = {
         /* Cols 36-38 */ LED_B(6, 8), LED_B(6, 1), LED_B(6, 2),
         /* Cols 39-40 */ LED_B(5, 7), LED_B(7, 5)}};
 
-class CustomMatrix3x40 : public Adafruit_IS31FL3731
+class CustomMatrix40x3 : public Adafruit_IS31FL3731
 {
 public:
-  CustomMatrix3x40() : Adafruit_IS31FL3731(40, 3) {}
+  CustomMatrix40x3() : Adafruit_IS31FL3731(40, 3) {}
 
   void drawPixel(int16_t x, int16_t y, uint16_t color) override
   {
     if ((x < 0) || (x >= 40) || (y < 0) || (y >= 3))
       return;
-    uint8_t led_id = matrix_lut_3x40[y][x];
+    uint8_t led_id = matrix_lut_40x3[y][x];
     setLEDPWM(led_id, (uint8_t)color, _frame);
   }
 };
@@ -119,15 +119,15 @@ public:
 // -----------------------------------------------------------------------------
 // Driver Instance & Display Dimensions
 // -----------------------------------------------------------------------------
-#if (ACTIVE_PROFILE == PROFILE_3X40_DISCOVERY)
-CustomMatrix3x40 matrix;
+#if (ACTIVE_PROFILE == PROFILE_40X3_DISCOVERY)
+CustomMatrix40x3 matrix;
 const int MATRIX_W = 40;
 const int MATRIX_H = 3;
 #elif (ACTIVE_PROFILE == PROFILE_16X9_ADAFRUIT)
 Adafruit_IS31FL3731 matrix;
 const int MATRIX_W = 16;
 const int MATRIX_H = 9;
-#elif (ACTIVE_PROFILE == PROFILE_9X16_ADAFRUIT)
+#elif (ACTIVE_PROFILE == PROFILE_16X9_ADAFRUIT)
 Adafruit_IS31FL3731 matrix;
 const int MATRIX_W = 9;
 const int MATRIX_H = 16;
@@ -164,12 +164,12 @@ void setup()
   Serial.println("  \"Discovery Lite Light\" IS31FL3731 Controller     ");
   Serial.println("==================================================");
 
-#if (ACTIVE_PROFILE == PROFILE_3X40_DISCOVERY)
-  Serial.println("Active Profile: 3x40 Flex Matrix (120 LEDs)");
+#if (ACTIVE_PROFILE == PROFILE_40X3_DISCOVERY)
+  Serial.println("Active Profile: 40x3 Flex Matrix (120 LEDs)");
 #elif (ACTIVE_PROFILE == PROFILE_16X9_ADAFRUIT)
   Serial.println("Active Profile: 16x9 Adafruit SMD Matrix (144 LEDs)");
-#elif (ACTIVE_PROFILE == PROFILE_9X16_ADAFRUIT)
-  Serial.println("Active Profile: 9x16 Adafruit SMD Matrix (Rotated Vertical)");
+#elif (ACTIVE_PROFILE == PROFILE_16X9_ADAFRUIT)
+  Serial.println("Active Profile: 16x9 Adafruit SMD Matrix (Rotated Vertical)");
 #endif
 
   // Pull SDB pin HIGH (Active operation, wake up chip)
@@ -254,8 +254,8 @@ void setup()
     }
   }
 
-#if (ACTIVE_PROFILE == PROFILE_9X16_ADAFRUIT)
-  matrix.setRotation(1); // 90 degree rotation for 9x16 vertical orientation
+#if (ACTIVE_PROFILE == PROFILE_16X9_ADAFRUIT)
+  matrix.setRotation(1); // 90 degree rotation for 16x9 rotated orientation
 #endif
 
   Serial.println("\n[OK] IS31FL3731 initialized and running display patterns!");

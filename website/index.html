@@ -897,6 +897,11 @@
             <input type="number" id="matrixHeightInput" class="form-input" value="3" min="1" max="64">
           </div>
         </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 12px; align-items: center;">
+          <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-family: var(--font-mono);">Presets:</span>
+          <button type="button" class="btn btn-subtle btn-sm" onclick="document.getElementById('matrixWidthInput').value=40; document.getElementById('matrixHeightInput').value=3;" style="font-size: 11px; padding: 3px 10px; font-family: var(--font-mono);">40x3 (Visor)</button>
+          <button type="button" class="btn btn-subtle btn-sm" onclick="document.getElementById('matrixWidthInput').value=16; document.getElementById('matrixHeightInput').value=9;" style="font-size: 11px; padding: 3px 10px; font-family: var(--font-mono);">16x9 (Adafruit)</button>
+        </div>
         <p style="font-size: 11px; color: var(--text-muted);">
           * Default for Thomas Discovery Lite eye visor is 40 columns by 3 rows (120 LEDs). Resizing preserves existing
           overlapping

@@ -5,15 +5,20 @@
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include <Preferences.h>
+#include <DNSServer.h>
 
 #include "config.h"
 #include "matrix_driver.h"
 #include "messages.h"
 #include "animation_engine.h"
+#include "heartbeat.h"
 
 // ==============================================================================
 // Shared Global State & Queues
 // ==============================================================================
+const byte DNS_PORT = 53;
+DNSServer dnsServer;
 AsyncWebServer server(80);
 QueueHandle_t animationQueue = NULL;
 SemaphoreHandle_t statusMutex = NULL;
@@ -33,8 +38,10 @@ struct SharedStatus {
     char loopMode[16];
 } systemStatus;
 
-bool wifiActive = true;
+volatile bool wifiActive = true;
 uint32_t lastWifiActivity = 0;
+String currentApSsid = AP_SSID;
+bool isDefaultSsid = true;
 
 TaskHandle_t TaskCore0;
 TaskHandle_t TaskCore1;
@@ -54,12 +61,19 @@ void runSwipeTest() {
         }
         delay(20);
     }
-    // Return to clear
-    displayMatrix->clear();
 }
 
 void animationTask(void *pvParameters) {
     Serial.println("[Core 1] Animation Task Starting...");
+
+    // Read persisted matrix hardware choice from Preferences (NVS)
+    Preferences prefs;
+    prefs.begin("animatrix", true);
+    String savedMatrix = prefs.getString("matrix_type", "adafruit_16x9");
+    prefs.end();
+    if (savedMatrix == "custom_3x40") savedMatrix = "custom_40x3";
+
+    setMatrixType(savedMatrix.c_str());
 
     uint8_t detectedAddr = 0;
     bool matrixOk = initMatrixHardware(detectedAddr);
@@ -67,19 +81,15 @@ void animationTask(void *pvParameters) {
     if (!matrixOk) {
         Serial.println("[Core 1] ERROR: IS31FL3731 not detected on I2C bus!");
     } else {
-        Serial.printf("[Core 1] IS31FL3731 initialized at 0x%02X (%dx%d matrix)\n",
-                      detectedAddr, displayMatrix->width(), displayMatrix->height());
+        Serial.printf("[Core 1] IS31FL3731 initialized at 0x%02X (%dx%d matrix, type: %s)\n",
+                      detectedAddr, displayMatrix->width(), displayMatrix->height(), savedMatrix.c_str());
     }
 
     // Update shared initial status
     if (xSemaphoreTake(statusMutex, portMAX_DELAY) == pdTRUE) {
         systemStatus.matrixFound = matrixOk;
         systemStatus.i2cAddr = detectedAddr;
-#if ACTIVE_MATRIX_TYPE == MATRIX_TYPE_ADAFRUIT_16X9
-        strncpy(systemStatus.matrixType, "adafruit_16x9", sizeof(systemStatus.matrixType) - 1);
-#else
-        strncpy(systemStatus.matrixType, "custom_3x40", sizeof(systemStatus.matrixType) - 1);
-#endif
+        strncpy(systemStatus.matrixType, savedMatrix.c_str(), sizeof(systemStatus.matrixType) - 1);
         systemStatus.matrixWidth = displayMatrix->width();
         systemStatus.matrixHeight = displayMatrix->height();
         systemStatus.isLoaded = false;
@@ -123,11 +133,32 @@ void animationTask(void *pvParameters) {
                     displayMatrix->clear();
                     break;
 
-                case TRIGGER_TEST_SWIPE:
+                case TRIGGER_TEST_SWIPE: {
+                    bool wasLoaded = engine.isLoaded();
+                    bool wasPlaying = engine.isPlaying();
                     engine.pause();
+
+                    // Set playing status so heartbeat LED lights up solid yellow
+                    if (xSemaphoreTake(statusMutex, portMAX_DELAY) == pdTRUE) {
+                        systemStatus.isPlaying = true;
+                        xSemaphoreGive(statusMutex);
+                    }
+
                     runSwipeTest();
-                    engine.resume();
+
+                    if (wasLoaded && wasPlaying) {
+                        engine.resume();
+                    } else {
+                        // Return to default state: all LEDs on at 255
+                        displayMatrix->fillScreen(255);
+                    }
+
+                    if (xSemaphoreTake(statusMutex, portMAX_DELAY) == pdTRUE) {
+                        systemStatus.isPlaying = engine.isPlaying();
+                        xSemaphoreGive(statusMutex);
+                    }
                     break;
+                }
 
                 case TRIGGER_PLAY_SCRIPT:
                     engine.loadAnimation(trigger.scriptFilename);
@@ -140,6 +171,36 @@ void animationTask(void *pvParameters) {
                 case TRIGGER_RESUME:
                     engine.resume();
                     break;
+
+                case TRIGGER_SET_MATRIX: {
+                    engine.stop();
+                    setMatrixType(trigger.scriptFilename);
+
+                    uint8_t detectedAddr = 0;
+                    bool matrixOk = initMatrixHardware(detectedAddr);
+                    displayMatrix->fillScreen(255); // Reset to default all-on state
+
+                    // Persist to NVS Preferences across reboots
+                    Preferences p;
+                    p.begin("animatrix", false);
+                    p.putString("matrix_type", trigger.scriptFilename);
+                    p.end();
+
+                    if (xSemaphoreTake(statusMutex, portMAX_DELAY) == pdTRUE) {
+                        systemStatus.matrixFound = matrixOk;
+                        systemStatus.i2cAddr = detectedAddr;
+                        strncpy(systemStatus.matrixType, trigger.scriptFilename, sizeof(systemStatus.matrixType) - 1);
+                        systemStatus.matrixWidth = displayMatrix->width();
+                        systemStatus.matrixHeight = displayMatrix->height();
+                        systemStatus.isLoaded = false;
+                        systemStatus.isPlaying = false;
+                        strncpy(systemStatus.animName, "none", sizeof(systemStatus.animName) - 1);
+                        xSemaphoreGive(statusMutex);
+                    }
+                    Serial.printf("[Core 1] Switched matrix target to %s (%dx%d, I2C: 0x%02X)\n",
+                                  trigger.scriptFilename, displayMatrix->width(), displayMatrix->height(), detectedAddr);
+                    break;
+                }
 
                 default:
                     break;
@@ -198,10 +259,23 @@ void setupNetworkAndIO() {
     pinMode(PIN_BOOT_BTN, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(PIN_BOOT_BTN), bootButtonISR, FALLING);
 
+    // Read persisted AP SSID from Preferences
+    Preferences prefs;
+    prefs.begin("animatrix", true);
+    currentApSsid = prefs.getString("ap_ssid", AP_SSID);
+    String apPass = prefs.getString("ap_pass", AP_PASS);
+    isDefaultSsid = (currentApSsid == AP_SSID);
+    prefs.end();
+
     // Setup Wi-Fi SoftAP
     WiFi.mode(WIFI_AP_STA);
-    WiFi.softAP(AP_SSID, AP_PASS);
-    Serial.printf("[Core 0] Wi-Fi SoftAP '%s' ready. IP: %s\n", AP_SSID, WiFi.softAPIP().toString().c_str());
+    WiFi.softAP(currentApSsid.c_str(), apPass.c_str());
+    Serial.printf("[Core 0] Wi-Fi SoftAP '%s' ready. IP: %s (Default SSID: %s)\n",
+                  currentApSsid.c_str(), WiFi.softAPIP().toString().c_str(), isDefaultSsid ? "YES" : "NO");
+
+    // Start Captive Portal DNS Server (redirects all domains to local IP)
+    dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
+    Serial.println("[Core 0] Captive Portal DNS Server started.");
 
     lastWifiActivity = millis();
 
@@ -210,13 +284,48 @@ void setupNetworkAndIO() {
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type, X-Animation-Name, Authorization");
 
-    // Preflight OPTIONS Handler
+    // --------------------------------------------------------------------------
+    // Captive Portal Detection Routes (iOS, Android, Windows)
+    // --------------------------------------------------------------------------
+    auto handleCaptiveRedirect = [](AsyncWebServerRequest *request) {
+        lastWifiActivity = millis();
+        request->redirect("http://" + WiFi.softAPIP().toString() + "/");
+    };
+
+    server.on("/hotspot-detect.html", HTTP_GET, handleCaptiveRedirect); // Apple
+    server.on("/canonical.html", HTTP_GET, handleCaptiveRedirect);      // Apple
+    server.on("/generate_204", HTTP_GET, handleCaptiveRedirect);        // Android
+    server.on("/gen_204", HTTP_GET, handleCaptiveRedirect);             // Android
+
+    // Windows NCSI Probes: Spoof success so Windows does NOT launch browser to msftconnecttest.com/redirect (which redirects to msn.com)
+    server.on("/connecttest.txt", HTTP_GET, [](AsyncWebServerRequest *request) {
+        lastWifiActivity = millis();
+        request->send(200, "text/plain", "Microsoft Connect Test");
+    });
+    server.on("/ncsi.txt", HTTP_GET, [](AsyncWebServerRequest *request) {
+        lastWifiActivity = millis();
+        request->send(200, "text/plain", "Microsoft NCSI");
+    });
+    // In case any browser or Windows client still navigates to /redirect
+    server.on("/redirect", HTTP_GET, handleCaptiveRedirect);
+
+    // Preflight OPTIONS & Catch-all Captive Portal Redirect Handler
     server.onNotFound([](AsyncWebServerRequest *request) {
+        lastWifiActivity = millis();
         if (request->method() == HTTP_OPTIONS) {
             request->send(200);
-        } else {
-            request->send(404, "text/plain", "Not Found");
+            return;
         }
+
+        // If client requested an external hostname (e.g. captive.apple.com), redirect to root
+        String host = request->host();
+        String localIp = WiFi.softAPIP().toString();
+        if (!host.equalsIgnoreCase(localIp)) {
+            request->redirect("http://" + localIp + "/");
+            return;
+        }
+
+        request->send(404, "text/plain", "Not Found");
     });
 
     // --------------------------------------------------------------------------
@@ -252,6 +361,10 @@ void setupNetworkAndIO() {
         sys["free_psram"] = ESP.getFreePsram();
         sys["uptime_sec"] = millis() / 1000;
 
+        JsonObject wifi = doc["wifi"].to<JsonObject>();
+        wifi["ssid"] = currentApSsid;
+        wifi["is_default"] = isDefaultSsid;
+
         String response;
         serializeJson(doc, response);
         request->send(200, "application/json", response);
@@ -271,11 +384,20 @@ void setupNetworkAndIO() {
         [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
             lastWifiActivity = millis();
             static File uploadFile;
+            static String uploadPath;
 
             if (index == 0) {
-                uploadFile = LittleFS.open(ACTIVE_ANIM_FILE, "w");
+                uploadPath = ACTIVE_ANIM_FILE;
+                if (request->hasHeader("X-Animation-Name")) {
+                    String name = request->getHeader("X-Animation-Name")->value();
+                    name.trim();
+                    if (name.length() > 0) {
+                        uploadPath = name.startsWith("/") ? name : "/" + name;
+                    }
+                }
+                uploadFile = LittleFS.open(uploadPath, "w");
                 if (!uploadFile) {
-                    Serial.println("[Core 0] Error opening active animation file for write!");
+                    Serial.println("[Core 0] Error opening animation file for write!");
                     return;
                 }
             }
@@ -287,12 +409,12 @@ void setupNetworkAndIO() {
             if (index + len == total) {
                 if (uploadFile) {
                     uploadFile.close();
-                    Serial.printf("[Core 0] Direct JSON upload complete: %u bytes.\n", (uint32_t)total);
+                    Serial.printf("[Core 0] Direct JSON upload complete: %s (%u bytes)\n", uploadPath.c_str(), (uint32_t)total);
 
                     // Notify Core 1 to play the newly uploaded animation
                     AnimationTrigger t;
                     t.type = TRIGGER_PLAY_SCRIPT;
-                    strncpy(t.scriptFilename, ACTIVE_ANIM_FILE, sizeof(t.scriptFilename) - 1);
+                    strncpy(t.scriptFilename, uploadPath.c_str(), sizeof(t.scriptFilename) - 1);
                     xQueueSend(animationQueue, &t, 0);
                 }
             }
@@ -315,7 +437,14 @@ void setupNetworkAndIO() {
             else if (act == "resume") t.type = TRIGGER_RESUME;
             else if (act == "play") {
                 t.type = TRIGGER_PLAY_SCRIPT;
-                strncpy(t.scriptFilename, ACTIVE_ANIM_FILE, sizeof(t.scriptFilename) - 1);
+                String targetFile = ACTIVE_ANIM_FILE;
+                if (request->hasParam("file", true)) {
+                    targetFile = request->getParam("file", true)->value();
+                } else if (request->hasParam("file")) {
+                    targetFile = request->getParam("file")->value();
+                }
+                if (!targetFile.startsWith("/")) targetFile = "/" + targetFile;
+                strncpy(t.scriptFilename, targetFile.c_str(), sizeof(t.scriptFilename) - 1);
             }
         }
 
@@ -328,6 +457,95 @@ void setupNetworkAndIO() {
     });
 
     // --------------------------------------------------------------------------
+    // REST API: GET /api/animations (List all .json sequences stored in LittleFS)
+    // --------------------------------------------------------------------------
+    server.on("/api/animations", HTTP_GET, [](AsyncWebServerRequest *request) {
+        lastWifiActivity = millis();
+        JsonDocument doc;
+        JsonArray arr = doc["files"].to<JsonArray>();
+
+        File root = LittleFS.open("/");
+        if (root && root.isDirectory()) {
+            File file = root.openNextFile();
+            while (file) {
+                String name = file.name();
+                if (name.startsWith("/")) name = name.substring(1);
+                if (name.endsWith(".json")) {
+                    JsonObject item = arr.add<JsonObject>();
+                    item["name"] = name;
+                    item["size"] = file.size();
+                }
+                file = root.openNextFile();
+            }
+        }
+
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+
+    // --------------------------------------------------------------------------
+    // REST API: POST /api/matrix (Actions: select hardware target e.g. adafruit_16x9, custom_40x3)
+    // --------------------------------------------------------------------------
+    server.on("/api/matrix", HTTP_POST, [](AsyncWebServerRequest *request) {
+        lastWifiActivity = millis();
+        String matType = "";
+
+        if (request->hasParam("type", true)) {
+            matType = request->getParam("type", true)->value();
+        } else if (request->hasParam("type")) {
+            matType = request->getParam("type")->value();
+        }
+
+        if (matType == "custom_3x40") matType = "custom_40x3";
+
+        if (matType == "adafruit_16x9" || matType == "custom_40x3") {
+            AnimationTrigger t;
+            t.type = TRIGGER_SET_MATRIX;
+            strncpy(t.scriptFilename, matType.c_str(), sizeof(t.scriptFilename) - 1);
+            xQueueSend(animationQueue, &t, 0);
+
+            request->send(200, "application/json", "{\"status\":\"ok\",\"type\":\"" + matType + "\"}");
+        } else {
+            request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid matrix type. Use 'adafruit_16x9' or 'custom_40x3'.\"}");
+        }
+    });
+
+    // --------------------------------------------------------------------------
+    // REST API: POST /api/ssid (Update custom AP SSID name & reboot)
+    // --------------------------------------------------------------------------
+    server.on("/api/ssid", HTTP_POST, [](AsyncWebServerRequest *request) {
+        lastWifiActivity = millis();
+        String newSsid = "";
+
+        if (request->hasParam("ssid", true)) newSsid = request->getParam("ssid", true)->value();
+        else if (request->hasParam("ssid")) newSsid = request->getParam("ssid")->value();
+
+        newSsid.trim();
+
+        if (newSsid.length() < 1 || newSsid.length() > 32) {
+            request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"SSID must be 1 to 32 characters\"}");
+            return;
+        }
+
+        Preferences p;
+        p.begin("animatrix", false);
+        p.putString("ap_ssid", newSsid);
+        p.end();
+
+        currentApSsid = newSsid;
+        isDefaultSsid = (newSsid == AP_SSID);
+
+        request->send(200, "application/json", "{\"status\":\"ok\",\"ssid\":\"" + newSsid + "\"}");
+
+        // Delayed restart to broadcast new SSID cleanly
+        xTaskCreate([](void *param) {
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+            ESP.restart();
+        }, "restartTask", 2048, NULL, 1, NULL);
+    });
+
+    // --------------------------------------------------------------------------
     // Multipart File Upload Handler (for Web UI file picker)
     // --------------------------------------------------------------------------
     server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request) {
@@ -335,8 +553,11 @@ void setupNetworkAndIO() {
     }, [](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
         lastWifiActivity = millis();
         static File formFile;
+        static String savedPath;
         if (!index) {
-            formFile = LittleFS.open(ACTIVE_ANIM_FILE, "w");
+            savedPath = filename;
+            if (!savedPath.startsWith("/")) savedPath = "/" + savedPath;
+            formFile = LittleFS.open(savedPath, "w");
         }
         if (formFile) {
             formFile.write(data, len);
@@ -346,7 +567,7 @@ void setupNetworkAndIO() {
                 formFile.close();
                 AnimationTrigger t;
                 t.type = TRIGGER_PLAY_SCRIPT;
-                strncpy(t.scriptFilename, ACTIVE_ANIM_FILE, sizeof(t.scriptFilename) - 1);
+                strncpy(t.scriptFilename, savedPath.c_str(), sizeof(t.scriptFilename) - 1);
                 xQueueSend(animationQueue, &t, 0);
             }
         }
@@ -381,20 +602,31 @@ void setupNetworkAndIO() {
 void networkTask(void *pvParameters) {
     setupNetworkAndIO();
 
+    uint32_t lastStationCheck = 0;
+
     while (1) {
         if (wifiActive) {
-            if (WiFi.softAPgetStationNum() > 0) {
-                lastWifiActivity = millis();
-            }
+            // Process DNS queries for Captive Portal
+            dnsServer.processNextRequest();
 
-            if (millis() - lastWifiActivity > WIFI_TIMEOUT_MS) {
-                Serial.println("[Core 0] Wi-Fi inactivity timeout. Sleeping AP...");
-                WiFi.softAPdisconnect(true);
-                WiFi.mode(WIFI_OFF);
-                wifiActive = false;
+            uint32_t now = millis();
+            if (now - lastStationCheck >= 1000) {
+                lastStationCheck = now;
+
+                if (WiFi.softAPgetStationNum() > 0) {
+                    lastWifiActivity = now;
+                }
+
+                if (now - lastWifiActivity > WIFI_TIMEOUT_MS) {
+                    Serial.println("[Core 0] Wi-Fi inactivity timeout. Sleeping AP...");
+                    dnsServer.stop();
+                    WiFi.softAPdisconnect(true);
+                    WiFi.mode(WIFI_OFF);
+                    wifiActive = false;
+                }
             }
         }
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 
@@ -412,6 +644,9 @@ void setup() {
     // Initialize synchronization primitives
     animationQueue = xQueueCreate(10, sizeof(AnimationTrigger));
     statusMutex = xSemaphoreCreateMutex();
+
+    // Initialize onboard NeoPixel heartbeat indicator (GPIO21)
+    HeartbeatIndicator::init();
 
     // Spawn Core 1 Task (Matrix Rendering & Animation Engine)
     xTaskCreatePinnedToCore(
@@ -437,6 +672,12 @@ void setup() {
 }
 
 void loop() {
-    // Idle main loop task (FreeRTOS handles everything on Core 0 & Core 1)
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    static bool isPlaying = false;
+    if (xSemaphoreTake(statusMutex, 0) == pdTRUE) {
+        isPlaying = systemStatus.isPlaying;
+        xSemaphoreGive(statusMutex);
+    }
+
+    HeartbeatIndicator::update(isPlaying, wifiActive);
+    vTaskDelay(50 / portTICK_PERIOD_MS);
 }
