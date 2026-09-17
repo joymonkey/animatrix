@@ -27,7 +27,17 @@
             </div>
         </header>
 
-        <!-- Default SSID Customization Prompt Banner -->
+        <!-- Navigation Tabs -->
+        <nav class="hud-nav-tabs">
+            <button class="hud-tab active" id="tabTerminal" onclick="switchView('terminal')">
+                <span class="tab-icon">⚡</span> TERMINAL
+            </button>
+            <button class="hud-tab" id="tabSettings" onclick="switchView('settings')">
+                <span class="tab-icon">⚙</span> SETTINGS &amp; DIAGNOSTICS
+            </button>
+        </nav>
+
+        <!-- Default SSID Customization Prompt Banner (visible on both pages) -->
         <div class="ssid-prompt-banner" id="ssidPromptBanner" style="display: none;">
             <div class="ssid-prompt-header">
                 <div class="ssid-prompt-title">
@@ -44,101 +54,170 @@
             </div>
         </div>
 
-        <!-- Primary Hardware Controls & Sequence Picker (Top Section) -->
-        <section class="panel control-panel">
-            <div class="panel-header">
-                <h2>HARDWARE CONTROLS</h2>
-                <div class="play-state-indicator" id="playStateBadge">IDLE</div>
+        <!-- ===================================================================
+             VIEW 1: TERMINAL (Hardware Controls, Telemetry, Sequence, Upload)
+             =================================================================== -->
+        <main class="hud-view active-view" id="viewTerminal">
+            <!-- Primary Hardware Controls & Sequence Picker (Top Section) -->
+            <section class="panel control-panel">
+                <div class="panel-header">
+                    <h2>HARDWARE CONTROLS</h2>
+                    <div class="play-state-indicator" id="playStateBadge">IDLE</div>
+                </div>
+
+                <!-- Stored Animation Selector -->
+                <div class="sequence-select-container">
+                    <div class="select-header">
+                        <label for="animSelect">SELECT ANIMATION SEQUENCE</label>
+                        <div class="select-actions">
+                            <button id="filterToggleBtn" class="btn-filter-toggle" onclick="toggleMatrixFilter()" title="Filter by active matrix resolution">40x3 ONLY</button>
+                            <button class="btn-refresh" onclick="fetchAnimationList()" title="Refresh animation list">↻</button>
+                        </div>
+                    </div>
+                    <select id="animSelect" class="cyber-select" onchange="onAnimationSelected(this.value)">
+                        <option value="">LOADING SEQUENCES...</option>
+                    </select>
+                </div>
+
+                <!-- Action Buttons Grid -->
+                <div class="btn-grid">
+                    <button class="btn btn-action" id="btnPlay" onclick="triggerAction('play')">PLAY</button>
+                    <button class="btn btn-action" id="btnPause" onclick="triggerAction('pause')">PAUSE</button>
+                    <button class="btn btn-accent" onclick="triggerAction('test')">SWIPE TEST</button>
+                    <button class="btn btn-warning" onclick="triggerAction('all_on')">ALL ON</button>
+                    <button class="btn btn-danger" onclick="triggerAction('all_off')">ALL OFF</button>
+                </div>
+            </section>
+
+            <!-- Hardware Telemetry Bar -->
+            <div class="telemetry-bar">
+                <div class="telemetry-item interactive" onclick="scrollToHardware()" title="Tap to configure hardware target in Settings">
+                    <span class="label">HARDWARE <span class="edit-icon">⚙</span></span>
+                    <span class="value highlight-val" id="matrixType">--</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="label">RESOLUTION</span>
+                    <span class="value" id="matrixRes">-- x --</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="label">I2C ADDR</span>
+                    <span class="value" id="i2cAddr">--</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="label">FREE HEAP</span>
+                    <span class="value" id="freeHeap">-- KB</span>
+                </div>
             </div>
 
-            <!-- Stored Animation Selector -->
-            <div class="sequence-select-container">
-                <div class="select-header">
-                    <label for="animSelect">SELECT ANIMATION SEQUENCE</label>
-                    <div class="select-actions">
-                        <button id="filterToggleBtn" class="btn-filter-toggle" onclick="toggleMatrixFilter()" title="Filter by active matrix resolution">40x3 ONLY</button>
-                        <button class="btn-refresh" onclick="fetchAnimationList()" title="Refresh animation list">↻</button>
+            <!-- Live Sequence Monitor -->
+            <section class="panel monitor-panel">
+                <div class="panel-header">
+                    <h2>SEQUENCE MONITOR</h2>
+                </div>
+                <div class="anim-meta-grid">
+                    <div class="meta-field">
+                        <span class="meta-label">SEQUENCE NAME</span>
+                        <span class="meta-val" id="animName">--</span>
+                    </div>
+                    <div class="meta-field">
+                        <span class="meta-label">FRAMES</span>
+                        <span class="meta-val" id="animFrames">--</span>
+                    </div>
+                    <div class="meta-field">
+                        <span class="meta-label">SPEED</span>
+                        <span class="meta-val" id="animFps">-- FPS</span>
+                    </div>
+                    <div class="meta-field">
+                        <span class="meta-label">LOOP MODE</span>
+                        <span class="meta-val" id="animLoop">--</span>
                     </div>
                 </div>
-                <select id="animSelect" class="cyber-select" onchange="onAnimationSelected(this.value)">
-                    <option value="">LOADING SEQUENCES...</option>
-                </select>
+            </section>
+
+            <!-- Deploy Animation Upload -->
+            <section class="panel upload-panel">
+                <div class="panel-header">
+                    <h2>DEPLOY ANIMATION</h2>
+                </div>
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-icon">⬆</div>
+                    <p>Tap or drag & drop <code>animatrix-v2</code> JSON</p>
+                    <input type="file" id="fileInput" accept=".json" style="display:none">
+                </div>
+                <div class="studio-banner">
+                    <a href="https://joymonkey.github.io/animatrix/" target="_blank" rel="noopener noreferrer" class="studio-banner-link">
+                        ⚡ CREATE SEQUENCES IN ANIMATRIX LED STUDIO ↗
+                    </a>
+                </div>
+                <div id="statusMessage" class="status-msg"></div>
+            </section>
+        </main>
+
+        <!-- ===================================================================
+             VIEW 2: SETTINGS & DIAGNOSTICS (Probe Debugger, Hardware, Wi-Fi)
+             =================================================================== -->
+        <main class="hud-view" id="viewSettings" style="display: none;">
+            <!-- Interactive Single LED Probe / Hardware Debugger -->
+            <section class="panel probe-panel" id="probeSection">
+                <div class="panel-header">
+                    <h2>SINGLE LED PROBE // HARDWARE DEBUGGER</h2>
+                    <div class="probe-mode-badge" id="probeStatusBadge">READY</div>
+                </div>
+            <p class="panel-desc">
+                Cycle through each LED one at a time to isolate solder bridges or reversed diodes. Use the buttons below or your keyboard's <strong>Up/Down (↑/↓)</strong> or <strong>Left/Right (←/→)</strong> arrow keys.
+            </p>
+
+            <!-- Diagnostic Readout Card -->
+            <div class="probe-card">
+                <div class="probe-card-grid">
+                    <div class="probe-stat-box">
+                        <span class="probe-label">DIODE</span>
+                        <span class="probe-val highlight-cyan" id="probeDiodeVal">D1</span>
+                    </div>
+                    <div class="probe-stat-box">
+                        <span class="probe-label">COORDINATE</span>
+                        <span class="probe-val" id="probeCoordVal">Col 1, Row 1 (Top)</span>
+                    </div>
+                    <div class="probe-stat-box wide">
+                        <span class="probe-label">CHARLIEPLEX NET PAIR & PINS</span>
+                        <span class="probe-val highlight-amber" id="probeNetVal">Anode: CA9 (Pin 1) ➔ Cathode: CA8 (Pin 28)</span>
+                    </div>
+                </div>
+                <div class="probe-hint-bar" id="probeHintVal">
+                    Matrix A (Cols 1–20) • If another LED glows unexpectedly, check for solder bridges on CA9 (Pin 1) or CA8 (Pin 28).
+                </div>
             </div>
 
-            <!-- Action Buttons Grid -->
-            <div class="btn-grid">
-                <button class="btn btn-action" id="btnPlay" onclick="triggerAction('play')">PLAY</button>
-                <button class="btn btn-action" id="btnPause" onclick="triggerAction('pause')">PAUSE</button>
-                <button class="btn btn-accent" onclick="triggerAction('test')">SWIPE TEST</button>
-                <button class="btn btn-warning" onclick="triggerAction('all_on')">ALL ON</button>
-                <button class="btn btn-danger" onclick="triggerAction('all_off')">ALL OFF</button>
+            <!-- Controls -->
+            <div class="probe-controls-row">
+                <button class="btn btn-action probe-nav-btn" id="btnProbePrev" onclick="stepProbe(-1)" title="Previous LED (Down or Left Arrow)">
+                    ◀ PREV (↓)
+                </button>
+                <div class="probe-stepper-center">
+                    <input type="range" id="probeSlider" min="1" max="120" value="1" class="cyber-slider" oninput="onProbeSliderChange(this.value)">
+                    <div class="probe-slider-label">
+                        LED <span id="probeIndexDisplay" class="highlight-cyan">1</span> OF <span id="probeMaxDisplay">120</span>
+                    </div>
+                </div>
+                <button class="btn btn-action probe-nav-btn" id="btnProbeNext" onclick="stepProbe(1)" title="Next LED (Up or Right Arrow)">
+                    NEXT (↑) ▶
+                </button>
+                <button class="btn btn-danger probe-off-btn" onclick="probeAllOff()" title="Turn all LEDs off (Space or Esc)">
+                    ALL OFF
+                </button>
+            </div>
+
+            <!-- Interactive Clickable Matrix Grid -->
+            <div class="probe-grid-wrapper">
+                <div class="probe-grid-header">
+                    <span>CLICK OR TAP ANY LED TO PROBE DIRECTLY:</span>
+                    <span id="gridHoverInfo" class="grid-hover-text"></span>
+                </div>
+                <div class="probe-matrix-grid" id="probeMatrixGrid"></div>
             </div>
         </section>
 
-        <!-- Hardware Telemetry Bar -->
-        <div class="telemetry-bar">
-            <div class="telemetry-item interactive" onclick="scrollToHardware()" title="Tap to configure hardware target">
-                <span class="label">HARDWARE <span class="edit-icon">↓</span></span>
-                <span class="value highlight-val" id="matrixType">--</span>
-            </div>
-            <div class="telemetry-item">
-                <span class="label">RESOLUTION</span>
-                <span class="value" id="matrixRes">-- x --</span>
-            </div>
-            <div class="telemetry-item">
-                <span class="label">I2C ADDR</span>
-                <span class="value" id="i2cAddr">--</span>
-            </div>
-            <div class="telemetry-item">
-                <span class="label">FREE HEAP</span>
-                <span class="value" id="freeHeap">-- KB</span>
-            </div>
-        </div>
-
-        <!-- Live Sequence Monitor -->
-        <section class="panel monitor-panel">
-            <div class="panel-header">
-                <h2>SEQUENCE MONITOR</h2>
-            </div>
-            <div class="anim-meta-grid">
-                <div class="meta-field">
-                    <span class="meta-label">SEQUENCE NAME</span>
-                    <span class="meta-val" id="animName">--</span>
-                </div>
-                <div class="meta-field">
-                    <span class="meta-label">FRAMES</span>
-                    <span class="meta-val" id="animFrames">--</span>
-                </div>
-                <div class="meta-field">
-                    <span class="meta-label">SPEED</span>
-                    <span class="meta-val" id="animFps">-- FPS</span>
-                </div>
-                <div class="meta-field">
-                    <span class="meta-label">LOOP MODE</span>
-                    <span class="meta-val" id="animLoop">--</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Deploy Animation Upload -->
-        <section class="panel upload-panel">
-            <div class="panel-header">
-                <h2>DEPLOY ANIMATION</h2>
-            </div>
-            <div class="drop-zone" id="dropZone">
-                <div class="drop-icon">⬆</div>
-                <p>Tap or drag & drop <code>animatrix-v2</code> JSON</p>
-                <input type="file" id="fileInput" accept=".json" style="display:none">
-            </div>
-            <div class="studio-banner">
-                <a href="https://joymonkey.github.io/animatrix/" target="_blank" rel="noopener noreferrer" class="studio-banner-link">
-                    ⚡ CREATE SEQUENCES IN ANIMATRIX LED STUDIO ↗
-                </a>
-            </div>
-            <div id="statusMessage" class="status-msg"></div>
-        </section>
-
-        <!-- Matrix Hardware Target Selection (Bottom) -->
+        <!-- Matrix Hardware Target Selection -->
         <section class="panel hardware-panel" id="hardwareSection">
             <div class="panel-header">
                 <h2>HARDWARE TARGET</h2>
@@ -154,7 +233,7 @@
             <p class="panel-desc">Hardware selection is saved to non-volatile storage (NVS) and persists across power cycles.</p>
         </section>
 
-        <!-- Wi-Fi Access Point Customization (Bottom) -->
+        <!-- Wi-Fi Access Point Customization -->
         <section class="panel wifi-panel" id="wifiSection">
             <div class="panel-header">
                 <h2>WI-FI ACCESS POINT</h2>
@@ -169,6 +248,7 @@
             </div>
             <p class="panel-desc">Saved to NVS flash. Updating reboots the system to broadcast the new SSID name.</p>
         </section>
+    </main>
 
         <!-- Footer -->
         <footer class="hud-footer">

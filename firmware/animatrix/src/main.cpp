@@ -218,6 +218,18 @@ void animationTask(void *pvParameters) {
                     break;
                 }
 
+                case TRIGGER_PROBE_PIXEL:
+                    engine.stop();
+                    displayMatrix->clear();
+                    if (trigger.brightness > 0 && trigger.x >= 0 && trigger.y >= 0) {
+                        displayMatrix->drawPixel(trigger.x, trigger.y, trigger.brightness);
+                    }
+                    if (xSemaphoreTake(statusMutex, portMAX_DELAY) == pdTRUE) {
+                        systemStatus.isPlaying = false;
+                        xSemaphoreGive(statusMutex);
+                    }
+                    break;
+
                 default:
                     break;
             }
@@ -531,6 +543,15 @@ void setupNetworkAndIO() {
             else if (act == "test") t.type = TRIGGER_TEST_SWIPE;
             else if (act == "pause") t.type = TRIGGER_PAUSE;
             else if (act == "resume") t.type = TRIGGER_RESUME;
+            else if (act == "probe" || act == "pixel") {
+                t.type = TRIGGER_PROBE_PIXEL;
+                t.brightness = 255;
+                t.x = -1;
+                t.y = -1;
+                if (request->hasParam("brightness", true)) t.brightness = request->getParam("brightness", true)->value().toInt();
+                if (request->hasParam("x", true)) t.x = request->getParam("x", true)->value().toInt();
+                if (request->hasParam("y", true)) t.y = request->getParam("y", true)->value().toInt();
+            }
             else if (act == "play") {
                 t.type = TRIGGER_PLAY_SCRIPT;
                 String targetFile = ACTIVE_ANIM_FILE;
@@ -550,6 +571,36 @@ void setupNetworkAndIO() {
         } else {
             request->send(400, "text/plain", "Invalid or missing action parameter.");
         }
+    });
+
+    // --------------------------------------------------------------------------
+    // REST API: POST /api/pixel (Direct single LED probe for hardware debugging)
+    // --------------------------------------------------------------------------
+    server.on("/api/pixel", HTTP_POST, [](AsyncWebServerRequest *request) {
+        lastWifiActivity = millis();
+        AnimationTrigger t;
+        memset(&t, 0, sizeof(t));
+        t.type = TRIGGER_PROBE_PIXEL;
+        t.brightness = 255;
+        t.x = -1;
+        t.y = -1;
+
+        if (request->hasParam("brightness", true)) {
+            t.brightness = request->getParam("brightness", true)->value().toInt();
+        } else if (request->hasParam("brightness")) {
+            t.brightness = request->getParam("brightness")->value().toInt();
+        }
+
+        if (request->hasParam("x", true) && request->hasParam("y", true)) {
+            t.x = request->getParam("x", true)->value().toInt();
+            t.y = request->getParam("y", true)->value().toInt();
+        } else if (request->hasParam("x") && request->hasParam("y")) {
+            t.x = request->getParam("x")->value().toInt();
+            t.y = request->getParam("y")->value().toInt();
+        }
+
+        xQueueSend(animationQueue, &t, 0);
+        request->send(200, "application/json", "{\"status\":\"ok\"}");
     });
 
     // --------------------------------------------------------------------------
@@ -685,6 +736,15 @@ void setupNetworkAndIO() {
             request->send(LittleFS, "/index.html", "text/html");
         } else {
             request->send(200, "text/html", "<h2>Animatrix Matrix Online</h2><p>Upload index.html to LittleFS.</p>");
+        }
+    });
+
+    server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
+        lastWifiActivity = millis();
+        if (LittleFS.exists("/index.html")) {
+            request->send(LittleFS, "/index.html", "text/html");
+        } else {
+            request->redirect("/");
         }
     });
 

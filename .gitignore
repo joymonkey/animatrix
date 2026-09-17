@@ -17,6 +17,7 @@ production/
 datasheets/
 renders/
 *fabrication*
+mictest/
 
 # ========================
 # PlatformIO & Embedded

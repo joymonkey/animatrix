@@ -23,12 +23,49 @@ const bottomSsidInput = document.getElementById('bottomSsidInput');
 const rebootModal = document.getElementById('rebootModal');
 const rebootMsg = document.getElementById('rebootMsg');
 
+// Navigation Tabs & Views
+const tabTerminal = document.getElementById('tabTerminal');
+const tabSettings = document.getElementById('tabSettings');
+const viewTerminal = document.getElementById('viewTerminal');
+const viewSettings = document.getElementById('viewSettings');
+
+let currentView = 'terminal';
 let currentActiveMatrix = 'adafruit_16x9';
 let currentActiveWidth = 16;
 let currentActiveHeight = 9;
 let allAnimations = [];
 let filterByActiveResolution = true;
 let isRebooting = false;
+
+// ==============================================================================
+// View Switching (Terminal vs. Settings & Diagnostics)
+// ==============================================================================
+function switchView(viewName) {
+    if (viewName !== 'settings') viewName = 'terminal';
+    currentView = viewName;
+
+    const isSettings = (viewName === 'settings');
+
+    if (viewTerminal) viewTerminal.style.display = isSettings ? 'none' : 'flex';
+    if (viewSettings) viewSettings.style.display = isSettings ? 'flex' : 'none';
+
+    if (tabTerminal) tabTerminal.classList.toggle('active', !isSettings);
+    if (tabSettings) tabSettings.classList.toggle('active', isSettings);
+
+    // Update URL hash without causing a page jump
+    try {
+        if (history.replaceState) {
+            history.replaceState(null, '', isSettings ? '#settings' : '#terminal');
+        } else {
+            window.location.hash = isSettings ? '#settings' : '#terminal';
+        }
+    } catch (_) {}
+
+    // When switching to settings, ensure the probe grid UI is refreshed
+    if (isSettings && typeof updateProbeUI === 'function') {
+        updateProbeUI();
+    }
+}
 
 // ==============================================================================
 // UI Feedback
@@ -69,9 +106,10 @@ async function fetchStatus() {
             matrixRes.textContent = `${currentActiveWidth} x ${currentActiveHeight}`;
             i2cAddr.textContent = data.matrix.found ? `0x${(data.matrix.i2c_addr || 0).toString(16).toUpperCase()}` : 'N/A';
 
-            // Re-render dropdown if hardware dimensions changed
+            // Re-render dropdown and probe grid if hardware dimensions changed
             if (prevWidth !== currentActiveWidth || prevHeight !== currentActiveHeight) {
                 renderAnimationDropdown();
+                initProbeGrid();
             }
 
             // Keep bottom selector in sync if not actively focused
@@ -308,12 +346,15 @@ async function triggerAction(action, file = null) {
 // Matrix Hardware Selection
 // ==============================================================================
 function scrollToHardware() {
-    const sec = document.getElementById('hardwareSection');
-    if (sec) {
-        sec.scrollIntoView({ behavior: 'smooth' });
-        sec.classList.add('highlight-section');
-        setTimeout(() => sec.classList.remove('highlight-section'), 1500);
-    }
+    switchView('settings');
+    setTimeout(() => {
+        const sec = document.getElementById('hardwareSection');
+        if (sec) {
+            sec.scrollIntoView({ behavior: 'smooth' });
+            sec.classList.add('highlight-section');
+            setTimeout(() => sec.classList.remove('highlight-section'), 1500);
+        }
+    }, 60);
 }
 
 async function selectMatrixHardware(newType) {
@@ -447,8 +488,275 @@ async function handleFileUpload(file) {
 }
 
 // ==============================================================================
+// Single LED Probe & Hardware Debugger
+// ==============================================================================
+const probeStatusBadge = document.getElementById('probeStatusBadge');
+const probeDiodeVal = document.getElementById('probeDiodeVal');
+const probeCoordVal = document.getElementById('probeCoordVal');
+const probeNetVal = document.getElementById('probeNetVal');
+const probeHintVal = document.getElementById('probeHintVal');
+const probeSlider = document.getElementById('probeSlider');
+const probeIndexDisplay = document.getElementById('probeIndexDisplay');
+const probeMaxDisplay = document.getElementById('probeMaxDisplay');
+const probeMatrixGrid = document.getElementById('probeMatrixGrid');
+const gridHoverInfo = document.getElementById('gridHoverInfo');
+
+let activeProbeIndex = 0; // 0-based
+let isProbeActive = false;
+
+const PROBE_NETS_40X3 = [
+    ["CA9","CA8",1,28],["CA9","CA7",1,27],["CA9","CA4",1,24],
+    ["CA6","CA8",26,28],["CA6","CA7",26,27],["CA6","CA4",26,24],
+    ["CA3","CA8",23,28],["CA3","CA7",23,27],["CA3","CA4",23,24],
+    ["CA8","CA9",28,1],["CA7","CA9",27,1],["CA4","CA9",24,1],
+    ["CA8","CA6",28,26],["CA7","CA6",27,26],["CA4","CA6",24,26],
+    ["CA8","CA3",28,23],["CA7","CA3",27,23],["CA4","CA3",24,23],
+    ["CA2","CA8",22,28],["CA2","CA7",22,27],["CA2","CA4",22,24],
+    ["CA1","CA8",21,28],["CA1","CA7",21,27],["CA1","CA4",21,24],
+    ["CA5","CA8",25,28],["CA5","CA7",25,27],["CA5","CA4",25,24],
+    ["CA8","CA2",28,22],["CA7","CA2",27,22],["CA4","CA2",24,22],
+    ["CA8","CA1",28,21],["CA7","CA1",27,21],["CA4","CA1",24,21],
+    ["CA8","CA5",28,25],["CA7","CA5",27,25],["CA4","CA5",24,25],
+    ["CA2","CA9",22,1],["CA2","CA6",22,26],["CA2","CA3",22,23],
+    ["CA1","CA9",21,1],["CA1","CA6",21,26],["CA1","CA3",21,23],
+    ["CA5","CA9",25,1],["CA5","CA6",25,26],["CA5","CA3",25,23],
+    ["CA9","CA2",1,22],["CA6","CA2",26,22],["CA3","CA2",23,22],
+    ["CA9","CA1",1,21],["CA6","CA1",26,21],["CA3","CA1",23,21],
+    ["CA9","CA5",1,25],["CA6","CA5",26,25],["CA3","CA5",23,25],
+    ["CA8","CA7",28,27],["CA8","CA4",28,24],["CA7","CA4",27,24],
+    ["CA7","CA8",27,28],["CA4","CA8",24,28],["CA4","CA7",24,27],
+    ["CB3","CB4",9,10],["CB3","CB5",9,11],["CB3","CB7",9,13],
+    ["CB9","CB4",15,10],["CB9","CB5",15,11],["CB9","CB7",15,13],
+    ["CB6","CB4",12,10],["CB6","CB5",12,11],["CB6","CB7",12,13],
+    ["CB4","CB3",10,9],["CB5","CB3",11,9],["CB7","CB3",13,9],
+    ["CB4","CB9",10,15],["CB5","CB9",11,15],["CB7","CB9",13,15],
+    ["CB4","CB6",10,12],["CB5","CB6",11,12],["CB7","CB6",13,12],
+    ["CB8","CB4",14,10],["CB8","CB5",14,11],["CB8","CB7",14,13],
+    ["CB1","CB4",7,10],["CB1","CB5",7,11],["CB1","CB7",7,13],
+    ["CB2","CB4",8,10],["CB2","CB5",8,11],["CB2","CB7",8,13],
+    ["CB4","CB8",10,14],["CB5","CB8",11,14],["CB7","CB8",13,14],
+    ["CB4","CB1",10,7],["CB5","CB1",11,7],["CB7","CB1",13,7],
+    ["CB4","CB2",10,8],["CB5","CB2",11,8],["CB7","CB2",13,8],
+    ["CB8","CB3",14,9],["CB8","CB9",14,15],["CB8","CB6",14,12],
+    ["CB1","CB3",7,9],["CB1","CB9",7,15],["CB1","CB6",7,12],
+    ["CB2","CB3",8,9],["CB2","CB9",8,15],["CB2","CB6",8,12],
+    ["CB3","CB8",9,14],["CB9","CB8",15,14],["CB6","CB8",12,14],
+    ["CB3","CB1",9,7],["CB9","CB1",15,7],["CB6","CB1",12,7],
+    ["CB3","CB2",9,8],["CB9","CB2",15,8],["CB6","CB2",12,8],
+    ["CB4","CB5",10,11],["CB4","CB7",10,13],["CB5","CB7",11,13],
+    ["CB5","CB4",11,10],["CB7","CB4",13,10],["CB7","CB5",13,11]
+];
+
+function getMaxProbeLeds() {
+    return currentActiveWidth * currentActiveHeight;
+}
+
+function initProbeGrid() {
+    if (!probeMatrixGrid) return;
+    probeMatrixGrid.innerHTML = '';
+
+    const cols = currentActiveWidth;
+    const rows = currentActiveHeight;
+    probeMatrixGrid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    probeMatrixGrid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+
+    const total = cols * rows;
+    if (probeSlider) {
+        probeSlider.max = total;
+        if (probeMaxDisplay) probeMaxDisplay.textContent = total;
+    }
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'probe-pixel-cell';
+            const idx = (cols === 40 && rows === 3) ? (c * 3 + r) : (r * cols + c);
+            cell.dataset.index = idx;
+            cell.dataset.col = c;
+            cell.dataset.row = r;
+
+            cell.addEventListener('click', () => {
+                setProbeIndex(idx);
+            });
+
+            cell.addEventListener('mouseenter', () => {
+                if (gridHoverInfo) {
+                    if (cols === 40 && rows === 3) {
+                        gridHoverInfo.textContent = `D${idx + 1} (Col ${c + 1}, Row ${r + 1})`;
+                    } else {
+                        gridHoverInfo.textContent = `(${c}, ${r})`;
+                    }
+                }
+            });
+
+            cell.addEventListener('mouseleave', () => {
+                if (gridHoverInfo) gridHoverInfo.textContent = '';
+            });
+
+            probeMatrixGrid.appendChild(cell);
+        }
+    }
+    updateProbeUI();
+}
+
+function updateProbeUI() {
+    const total = getMaxProbeLeds();
+    if (activeProbeIndex >= total) activeProbeIndex = total - 1;
+    if (activeProbeIndex < 0) activeProbeIndex = 0;
+
+    if (probeSlider) probeSlider.value = activeProbeIndex + 1;
+    if (probeIndexDisplay) probeIndexDisplay.textContent = isProbeActive ? (activeProbeIndex + 1) : '--';
+    if (probeStatusBadge) {
+        probeStatusBadge.textContent = isProbeActive ? 'ACTIVE (PROBING)' : 'OFF';
+        probeStatusBadge.style.color = isProbeActive ? 'var(--cyan-glow)' : 'var(--text-muted)';
+        probeStatusBadge.style.borderColor = isProbeActive ? 'var(--cyan-glow)' : 'rgba(255,255,255,0.2)';
+    }
+
+    let col = 0, row = 0;
+    if (currentActiveWidth === 40 && currentActiveHeight === 3) {
+        col = Math.floor(activeProbeIndex / 3);
+        row = activeProbeIndex % 3;
+        const rowName = row === 0 ? 'Top' : (row === 1 ? 'Mid' : 'Bottom');
+
+        if (probeDiodeVal) probeDiodeVal.textContent = isProbeActive ? `D${activeProbeIndex + 1}` : '--';
+        if (probeCoordVal) probeCoordVal.textContent = isProbeActive ? `Col ${col + 1}, Row ${row + 1} (${rowName})` : 'None';
+
+        const netInfo = PROBE_NETS_40X3[activeProbeIndex];
+        if (netInfo && isProbeActive) {
+            const [anode, cathode, aPin, cPin] = netInfo;
+            if (probeNetVal) probeNetVal.textContent = `Anode: ${anode} (Pin ${aPin}) ➔ Cathode: ${cathode} (Pin ${cPin})`;
+            const block = col < 20 ? 'Matrix A (Cols 1–20)' : 'Matrix B (Cols 21–40)';
+            if (probeHintVal) {
+                probeHintVal.innerHTML = `<strong>${block}</strong> • If another LED glows unexpectedly, check for solder bridges on <strong>${anode} (Pin ${aPin})</strong> or <strong>${cathode} (Pin ${cPin})</strong>.`;
+            }
+        } else if (!isProbeActive) {
+            if (probeNetVal) probeNetVal.textContent = 'All LEDs Off';
+            if (probeHintVal) probeHintVal.textContent = 'Use arrow keys (↑ / ↓) or tap any cell above to probe.';
+        }
+    } else {
+        col = activeProbeIndex % currentActiveWidth;
+        row = Math.floor(activeProbeIndex / currentActiveWidth);
+        if (probeDiodeVal) probeDiodeVal.textContent = isProbeActive ? `P#${activeProbeIndex + 1}` : '--';
+        if (probeCoordVal) probeCoordVal.textContent = isProbeActive ? `X=${col}, Y=${row}` : 'None';
+        if (probeNetVal) probeNetVal.textContent = isProbeActive ? `Pixel (${col}, ${row}) on ${currentActiveWidth}x${currentActiveHeight}` : 'All LEDs Off';
+    }
+
+    // Highlight cell in grid
+    if (probeMatrixGrid) {
+        const cells = probeMatrixGrid.querySelectorAll('.probe-pixel-cell');
+        cells.forEach(c => {
+            const cIdx = parseInt(c.dataset.index);
+            if (isProbeActive && cIdx === activeProbeIndex) {
+                c.classList.add('active-probe');
+            } else {
+                c.classList.remove('active-probe');
+            }
+        });
+    }
+}
+
+async function sendProbeCommand(x, y, brightness = 255) {
+    try {
+        const params = new URLSearchParams();
+        params.append('x', x);
+        params.append('y', y);
+        params.append('brightness', brightness);
+
+        await fetch('/api/pixel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        });
+    } catch (err) {
+        console.warn('Pixel probe error:', err);
+    }
+}
+
+function setProbeIndex(idx) {
+    const total = getMaxProbeLeds();
+    if (idx < 0) idx = 0;
+    if (idx >= total) idx = total - 1;
+
+    activeProbeIndex = idx;
+    isProbeActive = true;
+
+    let x = 0, y = 0;
+    if (currentActiveWidth === 40 && currentActiveHeight === 3) {
+        x = Math.floor(idx / 3);
+        y = idx % 3;
+    } else {
+        x = idx % currentActiveWidth;
+        y = Math.floor(idx / currentActiveWidth);
+    }
+
+    updateProbeUI();
+    sendProbeCommand(x, y, 255);
+}
+
+function stepProbe(delta) {
+    const total = getMaxProbeLeds();
+    let nextIdx = isProbeActive ? (activeProbeIndex + delta) : 0;
+    if (nextIdx < 0) nextIdx = total - 1;
+    if (nextIdx >= total) nextIdx = 0;
+    setProbeIndex(nextIdx);
+}
+
+function onProbeSliderChange(val) {
+    setProbeIndex(parseInt(val) - 1);
+}
+
+function probeAllOff() {
+    isProbeActive = false;
+    updateProbeUI();
+    sendProbeCommand(-1, -1, 0);
+}
+
+// Global Keyboard Navigation (Enabled when viewing Settings / Diagnostics)
+window.addEventListener('keydown', (e) => {
+    // Ignore keystrokes inside text/select inputs
+    const activeEl = document.activeElement;
+    if (activeEl && ['INPUT', 'SELECT', 'TEXTAREA'].includes(activeEl.tagName)) {
+        return;
+    }
+
+    // Only respond to probe arrow keys if we are on the Settings & Diagnostics page
+    if (currentView !== 'settings') {
+        return;
+    }
+
+    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        stepProbe(1);
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        stepProbe(-1);
+    } else if (e.key === 'Escape' || e.key === ' ' || e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        probeAllOff();
+    }
+});
+
+// ==============================================================================
 // Initialization
 // ==============================================================================
+// Check URL hash or direct path for initial view selection
+if (window.location.hash === '#settings' || window.location.pathname.includes('/settings')) {
+    switchView('settings');
+} else {
+    switchView('terminal');
+}
+
+window.addEventListener('hashchange', () => {
+    if (window.location.hash === '#settings') {
+        switchView('settings');
+    } else {
+        switchView('terminal');
+    }
+});
+
 fetchStatus();
 fetchAnimationList();
 setInterval(fetchStatus, 1500);
+initProbeGrid();
+
+
