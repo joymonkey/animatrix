@@ -70,7 +70,7 @@ void animationTask(void *pvParameters) {
     // Read persisted matrix hardware choice from Preferences (NVS)
     Preferences prefs;
     prefs.begin("animatrix", true);
-    String savedMatrix = prefs.getString("matrix_type", "adafruit_16x9");
+    String savedMatrix = prefs.getString("matrix_type", "custom_40x3");
     prefs.end();
     if (savedMatrix == "custom_3x40") savedMatrix = "custom_40x3";
 
@@ -468,6 +468,7 @@ void setupNetworkAndIO() {
         sys["free_heap"] = ESP.getFreeHeap();
         sys["free_psram"] = ESP.getFreePsram();
         sys["uptime_sec"] = millis() / 1000;
+        sys["version"] = FIRMWARE_VERSION;
 
         JsonObject wifi = doc["wifi"].to<JsonObject>();
         wifi["ssid"] = currentApSsid;

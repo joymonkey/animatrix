@@ -4,15 +4,17 @@
 #include <Arduino.h>
 
 // ==============================================================================
-// 1. Hardware Matrix Selection
+// 1. Firmware & Hardware Selection
 // ==============================================================================
+#define FIRMWARE_VERSION          "1.0.0"
+
 #define MATRIX_TYPE_ADAFRUIT_16X9 1  // Adafruit 16x9 Charlieplexed Matrix (#2947)
 #define MATRIX_TYPE_CUSTOM_40X3   2  // Custom 40x3 Daft Punk Visor Flex Matrix
 #define MATRIX_TYPE_CUSTOM_3X40   MATRIX_TYPE_CUSTOM_40X3 // Compatibility alias
 
 // Set your active matrix geometry here:
 #ifndef ACTIVE_MATRIX_TYPE
-#define ACTIVE_MATRIX_TYPE MATRIX_TYPE_ADAFRUIT_16X9
+#define ACTIVE_MATRIX_TYPE MATRIX_TYPE_CUSTOM_40X3
 #endif
 
 // ==============================================================================

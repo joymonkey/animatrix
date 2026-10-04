@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Animatrix // Firmware Installer</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background-color: var(--bg-deep);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+    }
+    .flash-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      max-width: 480px;
+      text-align: center;
+      box-shadow: var(--shadow-panel);
+    }
+    .brand-icon { margin-bottom: 20px; }
+    h1 {
+      margin-top: 0;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--text-primary);
+      font-family: var(--font-display);
+    }
+    p {
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .warning {
+      background: rgba(255, 170, 0, 0.05);
+      border: 1px solid rgba(255, 170, 0, 0.2);
+      border-left: 4px solid var(--accent-amber);
+      padding: 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      text-align: left;
+      margin-bottom: 30px;
+      color: var(--text-secondary);
+    }
+    .warning strong {
+      color: var(--accent-amber);
+      display: block;
+      margin-bottom: 8px;
+    }
+    .warning ul { margin: 0; padding-left: 20px; }
+    .warning li { margin-bottom: 6px; }
+    esp-web-install-button {
+      --esp-tools-button-color: var(--accent-cyan);
+      --esp-tools-button-text-color: #000;
+      --esp-tools-button-border-radius: var(--radius-md);
+    }
+    .back-link {
+      display: inline-block;
+      margin-top: 30px;
+      color: var(--accent-cyan);
+      text-decoration: none;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      transition: text-shadow 0.2s ease;
+    }
+    .back-link:hover { text-shadow: var(--shadow-neon); }
+  </style>
+</head>
+<body>
+  <div class="flash-container">
+    <div class="brand-icon">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="var(--text-primary)">
+        <circle cx="5" cy="5" r="3"></circle><circle cx="12" cy="5" r="3"></circle><circle cx="19" cy="5" r="3"></circle>
+        <circle cx="5" cy="12" r="3"></circle><circle cx="12" cy="12" r="3"></circle><circle cx="19" cy="12" r="3"></circle>
+        <circle cx="5" cy="19" r="3"></circle><circle cx="12" cy="19" r="3"></circle><circle cx="19" cy="19" r="3"></circle>
+      </svg>
+    </div>
+    <h1>FIRMWARE INSTALLER</h1>
+    <p>Connect your Animatrix ESP32-S3 via USB to install or recover the firmware directly from your browser.</p>
+    <div class="warning">
+      <strong>Installation Requirements:</strong>
+      <ul>
+        <li>Must use a Chromium-based browser (Chrome, Edge, Opera, or Brave).</li>
+        <li>Ensure your USB cable supports data transfer (some are power-only).</li>
+        <li>Close any serial monitors or other programs using the COM port.</li>
+      </ul>
+    </div>
+    <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
+    <div><a href="index.html" class="back-link">&larr; Return to Studio</a></div>
+  </div>
+</body>
+</html>
