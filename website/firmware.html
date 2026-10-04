@@ -87,8 +87,12 @@
     </div>
     <h1>FIRMWARE INSTALLER</h1>
     <p>Connect your Animatrix ESP32-S3 via USB to install or recover the firmware directly from your browser.</p>
-    <div class="warning">
-      <strong>Installation Requirements:</strong>
+    <div class="warning" style="background: rgba(255, 0, 127, 0.1); border-left: 4px solid var(--accent-pink, #ff007f);">
+      <strong style="color: var(--accent-pink, #ff007f);">⚠️ DATA LOSS WARNING:</strong>
+      <p style="margin-top: 4px; margin-bottom: 12px; font-size: 13px; color: var(--text-primary);">
+        Flashing via USB performs a complete factory reset. <strong>All custom animations and settings saved on your helmet will be permanently erased.</strong> If you need to keep your files, please use the Local Wi-Fi Update method in the embedded dashboard instead.
+      </p>
+      <strong style="color: var(--accent-pink, #ff007f);">Installation Requirements:</strong>
       <ul>
         <li>Must use a Chromium-based browser (Chrome, Edge, Opera, or Brave).</li>
         <li>Ensure your USB cable supports data transfer (some are power-only).</li>
