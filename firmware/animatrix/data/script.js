@@ -1,3 +1,16 @@
+
+// ==============================================================================
+// Captive Portal Detection
+// ==============================================================================
+document.addEventListener('DOMContentLoaded', () => {
+    const ua = (navigator.userAgent || navigator.vendor || window.opera).toLowerCase();
+    const isCaptive = ua.includes('captivenetworksupport') || ua.includes('wv') || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches === false && !ua.includes('safari') && ua.includes('iphone'));
+    
+    if (isCaptive) {
+        const portalWarning = document.getElementById('captivePortalWarning');
+        if (portalWarning) portalWarning.style.display = 'flex';
+    }
+});
 // ==============================================================================
 // DOM Elements
 // ==============================================================================
@@ -416,7 +429,6 @@ async function selectMatrixHardware(newType) {
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 
-dropZone.addEventListener('click', () => fileInput.click());
 
 ['dragenter', 'dragover'].forEach(eventName => {
     dropZone.addEventListener(eventName, (e) => {
@@ -760,3 +772,120 @@ setInterval(fetchStatus, 1500);
 initProbeGrid();
 
 
+
+// ==============================================================================
+// OTA Firmware Update
+// ==============================================================================
+const otaDropZone = document.getElementById('otaDropZone');
+const otaFileInput = document.getElementById('otaFileInput');
+const otaStatusMsg = document.getElementById('otaStatusMsg');
+
+if (otaDropZone && otaFileInput) {
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        otaDropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            otaDropZone.style.background = 'rgba(0, 240, 255, 0.15)';
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        otaDropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            otaDropZone.style.background = 'rgba(0, 240, 255, 0.05)';
+        });
+    });
+
+    otaDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        otaDropZone.style.background = 'rgba(0, 240, 255, 0.05)';
+        if (e.dataTransfer.files.length > 0) handleOtaUpload(e.dataTransfer.files[0]);
+    });
+
+    otaFileInput.addEventListener('change', () => {
+        if (otaFileInput.files.length > 0) handleOtaUpload(otaFileInput.files[0]);
+    });
+}
+
+async function handleOtaUpload(file) {
+    if (!file.name.endsWith('.bin')) {
+        if (otaStatusMsg) {
+            otaStatusMsg.textContent = 'Please select a valid .bin firmware file';
+            otaStatusMsg.style.color = 'var(--red-glow)';
+        }
+        return;
+    }
+
+    if (otaStatusMsg) {
+        otaStatusMsg.textContent = `Uploading ${file.name}... Please wait, do not turn off.`;
+        otaStatusMsg.style.color = 'var(--cyan-glow)';
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('update', file, file.name);
+
+        const resp = await fetch('/api/update', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (resp.ok) {
+            isRebooting = true;
+            if (rebootMsg) {
+                rebootMsg.innerHTML = `Firmware flashed successfully.<br><br>The ESP32-S3 is restarting. Please wait 10 seconds and refresh the page.`;
+            }
+            if (rebootModal) {
+                rebootModal.classList.add('visible');
+            }
+        } else {
+            if (otaStatusMsg) {
+                otaStatusMsg.textContent = `OTA Failed: ${resp.status}`;
+                otaStatusMsg.style.color = 'var(--red-glow)';
+            }
+        }
+    } catch (err) {
+        if (otaStatusMsg) {
+            otaStatusMsg.textContent = `Upload error: ${err.message}`;
+            otaStatusMsg.style.color = 'var(--red-glow)';
+        }
+    }
+}
+
+// ==============================================================================
+// Animation Download
+// ==============================================================================
+function downloadCurrentAnimation() {
+    const filename = animSelect.value;
+    if (!filename) {
+        setStatus('No animation selected to download', true);
+        return;
+    }
+    
+    // Create an invisible anchor to trigger the download
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = `/api/download?file=${encodeURIComponent(filename)}`;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+        document.body.removeChild(a);
+    }, 100);
+}
+
+function forceNativeBrowser() {
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes('android')) {
+        // Use Android Intent to force open Chrome
+        window.location.href = "intent://192.168.4.1#Intent;scheme=http;package=com.android.chrome;end";
+    } else {
+        // On iOS, trying to open a new tab sometimes forces Safari to take over.
+        // If this fails, they still have the manual instructions on screen.
+        const a = document.createElement('a');
+        a.href = "http://192.168.4.1";
+        a.target = "_blank";
+        document.body.appendChild(a);
+        a.click();
+    }
+}

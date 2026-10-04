@@ -7,6 +7,7 @@
 #include <ArduinoJson.h>
 #include <Preferences.h>
 #include <DNSServer.h>
+#include <Update.h>
 
 #include "config.h"
 #include "matrix_driver.h"
@@ -757,6 +758,65 @@ void setupNetworkAndIO() {
     server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
         lastWifiActivity = millis();
         request->send(LittleFS, "/script.js", "application/javascript");
+    });
+
+    // --------------------------------------------------------------------------
+    // File Download Handler
+    // --------------------------------------------------------------------------
+    server.on("/api/download", HTTP_GET, [](AsyncWebServerRequest *request) {
+        lastWifiActivity = millis();
+        if (!request->hasParam("file")) {
+            request->send(400, "text/plain", "Missing file parameter");
+            return;
+        }
+        String filename = request->getParam("file")->value();
+        if (!filename.startsWith("/")) filename = "/" + filename;
+        
+        if (!LittleFS.exists(filename)) {
+            request->send(404, "text/plain", "File not found");
+            return;
+        }
+        
+        AsyncWebServerResponse *response = request->beginResponse(LittleFS, filename, "application/json", true);
+        request->send(response);
+    });
+
+    // --------------------------------------------------------------------------
+    // OTA Firmware Update Handler
+    // --------------------------------------------------------------------------
+    server.on("/api/update", HTTP_POST, [](AsyncWebServerRequest *request) {
+        bool shouldReboot = !Update.hasError();
+        AsyncWebServerResponse *response = request->beginResponse(200, "application/json", shouldReboot ? "{\"status\":\"ok\"}" : "{\"status\":\"error\"}");
+        response->addHeader("Connection", "close");
+        request->send(response);
+        
+        if (shouldReboot) {
+            xTaskCreate([](void *param) {
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
+                ESP.restart();
+            }, "restartTask", 2048, NULL, 1, NULL);
+        }
+    }, [](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
+        lastWifiActivity = millis();
+        if (!index) {
+            Serial.printf("[Core 0] OTA Update Start: %s\n", filename.c_str());
+            int cmd = (filename.indexOf("littlefs") > -1) ? U_SPIFFS : U_FLASH;
+            if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) {
+                Update.printError(Serial);
+            }
+        }
+        if (!Update.hasError()) {
+            if (Update.write(data, len) != len) {
+                Update.printError(Serial);
+            }
+        }
+        if (final) {
+            if (Update.end(true)) {
+                Serial.printf("[Core 0] OTA Update Success: %uB\n", index + len);
+            } else {
+                Update.printError(Serial);
+            }
+        }
     });
 
     server.begin();

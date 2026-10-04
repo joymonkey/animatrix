@@ -10,6 +10,23 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Captive Portal Overlay -->
+    <div id="captivePortalWarning" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:9999; background: var(--bg-dark); padding: 30px; text-align: center; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;">
+        <h1 style="color: var(--accent-pink); font-size: 24px; margin-bottom: 10px;">⚠️ BROWSER RESTRICTED</h1>
+        <p style="color: var(--text-primary); font-family: var(--font-mono); font-size: 14px; margin-bottom: 20px; max-width: 400px;">You are viewing this inside a temporary Wi-Fi login screen which blocks file uploads and downloads.</p>
+        <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--accent-cyan); padding: 20px; border-radius: 8px; text-align: left; max-width: 400px; width: 100%;">
+            <p style="color: var(--accent-cyan); font-weight: bold; margin-top:0; font-family: var(--font-mono);">HOW TO FIX THIS:</p>
+            <ol style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; padding-left: 20px; margin-bottom:0;">
+                <li style="margin-bottom:10px;">Select <b>"Use this network as is"</b> or <b>"Keep Wi-Fi connection"</b> in the top right menu to close this screen.</li>
+                <li style="margin-bottom:10px;">Temporarily <b>turn off Mobile Data</b> on your phone.</li>
+                <li>Open your real browser (Chrome/Safari) and go to <br><b>http://192.168.4.1</b></li>
+            </ol>
+        </div>
+        
+        <button onclick="forceNativeBrowser()" class="btn btn-accent" style="margin-top: 30px; padding: 16px 32px; font-size: 16px; font-weight: bold; width: 100%; max-width: 400px; box-shadow: 0 0 15px var(--accent-cyan);">🚀 OPEN NATIVE BROWSER</button>
+        
+        <button onclick="document.getElementById('captivePortalWarning').style.display='none';" class="btn" style="margin-top: 15px; padding: 10px 20px; background: rgba(255,0,0,0.05); border: 1px solid var(--accent-pink); font-size: 11px; opacity: 0.8;">I UNDERSTAND (Dismiss)</button>
+    </div>
     <div class="hud-container">
         <!-- Header -->
         <header class="hud-header">
@@ -72,6 +89,7 @@
                         <div class="select-actions">
                             <button id="filterToggleBtn" class="btn-filter-toggle" onclick="toggleMatrixFilter()" title="Filter by active matrix resolution">40x3 ONLY</button>
                             <button class="btn-refresh" onclick="fetchAnimationList()" title="Refresh animation list">↻</button>
+                            <button class="btn-refresh" onclick="downloadCurrentAnimation()" title="Download selected sequence" style="color:var(--accent-cyan); font-size:14px; margin-left:6px;">⬇</button>
                         </div>
                     </div>
                     <select id="animSelect" class="cyber-select" onchange="onAnimationSelected(this.value)">
@@ -139,11 +157,11 @@
                 <div class="panel-header">
                     <h2>DEPLOY ANIMATION</h2>
                 </div>
-                <div class="drop-zone" id="dropZone">
+                <label class="drop-zone" id="dropZone" for="fileInput" style="display:block; cursor:pointer;">
                     <div class="drop-icon">⬆</div>
                     <p>Tap or drag & drop <code>animatrix-v2</code> JSON</p>
                     <input type="file" id="fileInput" accept=".json" style="display:none">
-                </div>
+                </label>
                 <div class="studio-banner">
                     <a href="https://joymonkey.github.io/animatrix/" target="_blank" rel="noopener noreferrer" class="studio-banner-link">
                         ⚡ CREATE SEQUENCES IN ANIMATRIX LED STUDIO ↗
@@ -247,6 +265,22 @@
                 </div>
             </div>
             <p class="panel-desc">Saved to NVS flash. Updating reboots the system to broadcast the new SSID name.</p>
+        </section>
+
+        <!-- System Firmware Updates (OTA) -->
+        <section class="panel ota-panel" id="otaSection">
+            <div class="panel-header">
+                <h2>FIRMWARE UPDATE (OTA)</h2>
+            </div>
+            <div class="hardware-select-row" style="flex-direction: column; align-items: flex-start; gap: 12px;">
+                <p class="panel-desc" style="margin-top:0;">Upload a pre-compiled <code>firmware.bin</code> or <code>littlefs.bin</code> over Wi-Fi. This safely preserves all your NVS settings and animations.</p>
+                <label class="drop-zone" id="otaDropZone" for="otaFileInput" style="width: 100%; border: 1px dashed var(--accent-cyan); background: rgba(0, 240, 255, 0.05); padding: 24px 16px; text-align: center; cursor: pointer; border-radius: 6px; display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                    <div class="btn btn-accent" style="pointer-events: none; width: 100%; max-width: 250px; font-size: 13px; padding: 12px;">SELECT FIRMWARE (.bin)</div>
+                    <p style="color: var(--text-primary); font-family: var(--font-mono); font-size: 10px; margin: 0; opacity: 0.7;">(Tap to browse phone files, or drag & drop on PC)</p>
+                    <input type="file" id="otaFileInput" accept=".bin" style="display:none">
+                </label>
+                <div id="otaStatusMsg" class="status-msg" style="width:100%; text-align:center; font-family:var(--font-mono); font-size:11px;"></div>
+            </div>
         </section>
     </main>
 
