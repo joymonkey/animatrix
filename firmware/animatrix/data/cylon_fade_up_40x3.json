@@ -1,0 +1,24 @@
+{
+  "$schema": "animatrix-playlist-v1",
+  "name": "cylon_fade_up_40x3",
+  "author": "joymonkey",
+  "matrix": {
+    "width": 40,
+    "height": 3
+  },
+  "steps": [
+    {
+      "action": "play",
+      "file": "baked_cylon_fade_40x3.json",
+      "repeat": 1,
+      "transition": {
+        "type": "cut",
+        "duration_ms": 0
+      }
+    },
+    {
+      "action": "all_on",
+      "brightness": 255
+    }
+  ]
+}

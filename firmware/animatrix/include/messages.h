@@ -12,7 +12,8 @@ enum TriggerType {
     TRIGGER_PAUSE,
     TRIGGER_RESUME,
     TRIGGER_SET_MATRIX,
-    TRIGGER_PROBE_PIXEL
+    TRIGGER_PROBE_PIXEL,
+    TRIGGER_PLAY_PLAYLIST
 };
 
 struct AnimationTrigger {

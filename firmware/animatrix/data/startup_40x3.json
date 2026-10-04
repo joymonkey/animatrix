@@ -1,5 +1,5 @@
 {
-  "$schema": "animatrix-script-v1",
+  "$schema": "animatrix-playlist-v1",
   "name": "startup_visor_40x3",
   "author": "joymonkey",
   "matrix": {

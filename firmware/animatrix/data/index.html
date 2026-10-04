@@ -267,6 +267,24 @@
             <p class="panel-desc">Saved to NVS flash. Updating reboots the system to broadcast the new SSID name.</p>
         </section>
 
+        <!-- Default Startup Behavior -->
+        <section class="panel">
+            <div class="panel-header">
+                <h2>DEFAULT STARTUP BEHAVIOR</h2>
+            </div>
+            <div class="hardware-select-row">
+                <label for="startupSelect">POWER ON STATE:</label>
+                <div class="input-with-btn">
+                    <select id="startupSelect" class="cyber-select" onchange="selectStartupMode(this.value)">
+                        <option value="playlist">PLAY STARTUP PLAYLIST</option>
+                        <option value="all_on">ALL LEDS 100% ON</option>
+                    </select>
+                    <button class="btn btn-accent" onclick="previewStartupMode()">PREVIEW</button>
+                </div>
+            </div>
+            <p class="panel-desc">Saved to NVS flash. Takes effect immediately on next power up.</p>
+        </section>
+
         <!-- System Firmware Updates (OTA) -->
         <section class="panel ota-panel" id="otaSection">
             <div class="panel-header">

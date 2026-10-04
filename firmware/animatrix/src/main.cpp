@@ -38,6 +38,7 @@ struct SharedStatus {
     uint32_t totalFrames;
     uint32_t currentFrame;
     char loopMode[16];
+    char startupMode[64];
 } systemStatus;
 
 volatile bool wifiActive = true;
@@ -72,6 +73,7 @@ void animationTask(void *pvParameters) {
     Preferences prefs;
     prefs.begin("animatrix", true);
     String savedMatrix = prefs.getString("matrix_type", "custom_40x3");
+    String savedStartup = prefs.getString("startup_mode", "playlist");
     prefs.end();
     if (savedMatrix == "custom_3x40") savedMatrix = "custom_40x3";
 
@@ -101,29 +103,38 @@ void animationTask(void *pvParameters) {
         systemStatus.totalFrames = 0;
         systemStatus.currentFrame = 0;
         strncpy(systemStatus.loopMode, "infinite", sizeof(systemStatus.loopMode) - 1);
+        strncpy(systemStatus.startupMode, savedStartup.c_str(), sizeof(systemStatus.startupMode) - 1);
         xSemaphoreGive(statusMutex);
     }
 
     AnimationEngine engine;
     ScriptEngine scriptEngine;
 
-    // Check for matrix-specific startup script or generic startup script
-    String startupScript = "";
-    String matrixScript = (savedMatrix == "custom_40x3" || savedMatrix == "custom_3x40") ? "/startup_40x3.json" : "/startup_16x9.json";
-
-    if (LittleFS.exists(matrixScript)) {
-        startupScript = matrixScript;
-    } else if (LittleFS.exists("/startup.json")) {
-        startupScript = "/startup.json";
-    }
-
-    if (startupScript.length() > 0) {
-        scriptEngine.loadScript(startupScript.c_str(), engine);
-    } else if (LittleFS.exists(ACTIVE_ANIM_FILE)) {
-        engine.loadAnimation(ACTIVE_ANIM_FILE);
-    } else {
-        // Initial state if no startup script or active animation present: All LEDs on test pattern
+    // Check startup preference
+    if (savedStartup == "all_on") {
         displayMatrix->fillScreen(255);
+    } else {
+        String startupScript = "";
+        String matrixScript = (savedMatrix == "custom_40x3" || savedMatrix == "custom_3x40") ? "/startup_40x3.json" : "/startup_16x9.json";
+        
+        String customScript = savedStartup;
+        if (!customScript.startsWith("/")) customScript = "/" + customScript;
+
+        if (LittleFS.exists(customScript)) {
+            startupScript = customScript;
+        } else if (LittleFS.exists(matrixScript)) {
+            startupScript = matrixScript;
+        } else if (LittleFS.exists("/startup.json")) {
+            startupScript = "/startup.json";
+        }
+
+        if (startupScript.length() > 0) {
+            scriptEngine.loadScript(startupScript.c_str(), engine);
+        } else if (LittleFS.exists(ACTIVE_ANIM_FILE)) {
+            engine.loadAnimation(ACTIVE_ANIM_FILE);
+        } else {
+            displayMatrix->fillScreen(255);
+        }
     }
 
     AnimationTrigger trigger;
@@ -179,6 +190,10 @@ void animationTask(void *pvParameters) {
 
                 case TRIGGER_PLAY_SCRIPT:
                     engine.loadAnimation(trigger.scriptFilename);
+                    break;
+
+                case TRIGGER_PLAY_PLAYLIST:
+                    scriptEngine.loadScript(trigger.scriptFilename, engine);
                     break;
 
                 case TRIGGER_PAUSE:
@@ -310,8 +325,8 @@ static bool extractAnimationMeta(File& file, const String& filename, uint16_t& w
     size_t bytesRead = file.readBytes(buf, sizeof(buf) - 1);
     buf[bytesRead] = '\0';
 
-    // If file is a script (e.g. animatrix-script-v1 or has "steps":), ignore from animation dropdown
-    if (strstr(buf, "\"steps\"") != NULL || strstr(buf, "animatrix-script-v1") != NULL) {
+    // If file is a script (e.g. animatrix-playlist-v1 or has "steps":), ignore from animation dropdown
+    if (strstr(buf, "\"steps\"") != NULL || strstr(buf, "animatrix-playlist-v1") != NULL) {
         return false;
     }
 
@@ -554,6 +569,12 @@ void setupNetworkAndIO() {
                 if (request->hasParam("x", true)) t.x = request->getParam("x", true)->value().toInt();
                 if (request->hasParam("y", true)) t.y = request->getParam("y", true)->value().toInt();
             }
+            else if (act == "play_playlist") {
+                t.type = TRIGGER_PLAY_PLAYLIST;
+                String targetFile = request->hasParam("file", true) ? request->getParam("file", true)->value() : request->getParam("file")->value();
+                if (!targetFile.startsWith("/")) targetFile = "/" + targetFile;
+                strncpy(t.scriptFilename, targetFile.c_str(), sizeof(t.scriptFilename) - 1);
+            }
             else if (act == "play") {
                 t.type = TRIGGER_PLAY_SCRIPT;
                 String targetFile = ACTIVE_ANIM_FILE;
@@ -606,6 +627,36 @@ void setupNetworkAndIO() {
     });
 
     // --------------------------------------------------------------------------
+    // REST API: GET /api/playlists (List all .json sequences that are playlists)
+    // --------------------------------------------------------------------------
+    server.on("/api/playlists", HTTP_GET, [](AsyncWebServerRequest *request) {
+        lastWifiActivity = millis();
+        JsonDocument doc;
+        JsonArray arr = doc["files"].to<JsonArray>();
+
+        File root = LittleFS.open("/");
+        if (root && root.isDirectory()) {
+            File file = root.openNextFile();
+            while (file) {
+                String name = file.name();
+                if (name.startsWith("/")) name = name.substring(1);
+                if (name.endsWith(".json")) {
+                    char buf[256];
+                    file.seek(0);
+                    size_t bytesRead = file.readBytes(buf, sizeof(buf) - 1);
+                    buf[bytesRead] = '\0';
+                    if (strstr(buf, "animatrix-playlist-v1") != NULL) {
+                        arr.add(name);
+                    }
+                }
+                file = root.openNextFile();
+            }
+        }
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+
     // REST API: GET /api/animations (List all .json sequences stored in LittleFS)
     // --------------------------------------------------------------------------
     server.on("/api/animations", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -668,6 +719,33 @@ void setupNetworkAndIO() {
     });
 
     // --------------------------------------------------------------------------
+    // REST API: POST /api/startup (Update default startup behavior)
+    // --------------------------------------------------------------------------
+    server.on("/api/startup", HTTP_POST, [](AsyncWebServerRequest *request) {
+        lastWifiActivity = millis();
+        String mode = "playlist";
+        if (request->hasParam("mode", true)) mode = request->getParam("mode", true)->value();
+        else if (request->hasParam("mode")) mode = request->getParam("mode")->value();
+        
+        mode.trim();
+        if (mode != "playlist" && mode != "all_on" && !mode.endsWith(".json")) {
+            request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid mode\"}");
+            return;
+        }
+        
+        Preferences p;
+        p.begin("animatrix", false);
+        p.putString("startup_mode", mode);
+        p.end();
+        
+        if (xSemaphoreTake(statusMutex, portMAX_DELAY) == pdTRUE) {
+            strncpy(systemStatus.startupMode, mode.c_str(), sizeof(systemStatus.startupMode) - 1);
+            xSemaphoreGive(statusMutex);
+        }
+        
+        request->send(200, "application/json", "{\"status\":\"ok\",\"mode\":\"" + mode + "\"}");
+    });
+    
     // REST API: POST /api/ssid (Update custom AP SSID name & reboot)
     // --------------------------------------------------------------------------
     server.on("/api/ssid", HTTP_POST, [](AsyncWebServerRequest *request) {

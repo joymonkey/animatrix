@@ -89,7 +89,7 @@ public:
         }
 
         const char* schema = doc["$schema"] | "";
-        if (strcmp(schema, "animatrix-script-v1") != 0) {
+        if (strcmp(schema, "animatrix-playlist-v1") != 0) {
             Serial.printf("[ScriptEngine] Warning: Unexpected schema '%s'\n", schema);
         }
 
@@ -438,7 +438,9 @@ private:
                 }
 
                 bool loaded = engine.loadAnimation(fullPath.c_str());
-                if (!loaded) {
+                if (loaded) {
+                    engine.setLoopMode((step.repeat == 0) ? LOOP_INFINITE : LOOP_ONCE);
+                } else {
                     Serial.printf("[ScriptEngine] Warning: Failed to load '%s'. Skipping step.\n", fullPath.c_str());
                     advanceStep(engine);
                     return;

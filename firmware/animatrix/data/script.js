@@ -487,6 +487,7 @@ async function handleFileUpload(file) {
                 setStatus(`Loaded & playing ${file.name}!`);
             }
             await fetchAnimationList();
+fetchPlaylists();
             if (animSelect.querySelector(`option[value="${file.name}"]`)) {
                 animSelect.value = file.name;
             }
@@ -768,6 +769,7 @@ window.addEventListener('hashchange', () => {
 
 fetchStatus();
 fetchAnimationList();
+fetchPlaylists();
 setInterval(fetchStatus, 1500);
 initProbeGrid();
 
@@ -887,5 +889,95 @@ function forceNativeBrowser() {
         a.target = "_blank";
         document.body.appendChild(a);
         a.click();
+    }
+}
+
+// ==============================================================================
+// Startup Mode Selection
+// ==============================================================================
+async function selectStartupMode(mode) {
+    try {
+        const formData = new FormData();
+        formData.append('mode', mode);
+        
+        const resp = await fetch('/api/startup', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (resp.ok) {
+            setStatus(`Startup mode set to: ${mode}`, false);
+        } else {
+            setStatus(`Failed to set startup mode: ${resp.status}`, true);
+        }
+    } catch (err) {
+        setStatus(`Error setting startup mode: ${err.message}`, true);
+    }
+}
+
+// ==============================================================================
+// Playlists Fetching
+// ==============================================================================
+async function fetchPlaylists() {
+    try {
+        const resp = await fetch('/api/playlists');
+        const data = await resp.json();
+        const startupSelect = document.getElementById('startupSelect');
+        
+        if (startupSelect && data.files) {
+            const currentValue = startupSelect.value;
+            startupSelect.innerHTML = '<option value="all_on">ALL LEDS 100% ON</option>';
+            
+            data.files.forEach(file => {
+                const opt = document.createElement('option');
+                opt.value = file;
+                let title = file.replace('.json', '').replace(/_/g, ' ').toUpperCase();
+                opt.textContent = `PLAYLIST: ${title}`;
+                startupSelect.appendChild(opt);
+            });
+            
+            // Re-apply value if it exists in the newly populated list
+            const exists = Array.from(startupSelect.options).some(opt => opt.value === currentValue);
+            if (exists) {
+                startupSelect.value = currentValue;
+            }
+        }
+    } catch (err) {
+        console.error('Error fetching playlists:', err);
+    }
+}
+
+async function previewStartupMode() {
+    const startupSelect = document.getElementById('startupSelect');
+    if (!startupSelect) return;
+    
+    const mode = startupSelect.value;
+    
+    try {
+        const formData = new FormData();
+        if (mode === 'all_on') {
+            formData.append('action', 'all_on');
+        } else if (mode.endsWith('.json')) {
+            formData.append('action', 'play_playlist');
+            formData.append('file', mode);
+        } else {
+            formData.append('action', 'play_playlist');
+            const matrixSelect = document.getElementById('matrixSelect');
+            const fallback = (matrixSelect && matrixSelect.value === 'adafruit_16x9') ? 'startup_16x9.json' : 'startup_40x3.json';
+            formData.append('file', fallback);
+        }
+        
+        const resp = await fetch('/api/trigger', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (resp.ok) {
+            setStatus(`Previewing startup mode: ${mode}`, false);
+        } else {
+            setStatus(`Failed to preview startup mode: ${resp.status}`, true);
+        }
+    } catch (err) {
+        setStatus(`Error previewing startup mode: ${err.message}`, true);
     }
 }
