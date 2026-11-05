@@ -256,7 +256,6 @@ public:
             } else {
                 cycleEnded = true;
                 _isPlaying = false; // Finished playback
-                return;
             }
         } else if (_loopMode == LOOP_PING_PONG) {
             int next = (int)_currentFrame + _pingPongDir;
@@ -423,6 +422,7 @@ public:
         if (_loopMode == LOOP_PING_PONG) return "ping_pong";
         return "infinite";
     }
+    LoopMode getLoopMode() const { return _loopMode; }
 
     uint32_t getCycleCount() const { return _cycleCount; }
     void resetCycleCount() { _cycleCount = 0; }

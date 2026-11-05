@@ -301,7 +301,11 @@ public:
                                         if (!nextPath.startsWith("/")) nextPath = "/" + nextPath;
                                         _secondaryEngine.loadAnimation(nextPath.c_str(), false);
                                     }
-                                    _secondaryEngine.setLoopMode((nextStep.repeat == 0) ? LOOP_INFINITE : LOOP_ONCE);
+                                    if (nextStep.repeat == 0) {
+                                        if (_secondaryEngine.getLoopMode() == LOOP_ONCE) _secondaryEngine.setLoopMode(LOOP_INFINITE);
+                                    } else if (nextStep.repeat > 1) {
+                                        if (_secondaryEngine.getLoopMode() == LOOP_ONCE) _secondaryEngine.setLoopMode(LOOP_INFINITE);
+                                    }
                                     _secondaryEngine.resume();
 
                                     Serial.printf("[ScriptEngine] Live motion overlap started! Outgoing frames left: %u, blending into '%s'\n",
@@ -439,7 +443,11 @@ private:
 
                 bool loaded = engine.loadAnimation(fullPath.c_str());
                 if (loaded) {
-                    engine.setLoopMode((step.repeat == 0) ? LOOP_INFINITE : LOOP_ONCE);
+                    if (step.repeat == 0) {
+                        if (engine.getLoopMode() == LOOP_ONCE) engine.setLoopMode(LOOP_INFINITE);
+                    } else if (step.repeat > 1) {
+                        if (engine.getLoopMode() == LOOP_ONCE) engine.setLoopMode(LOOP_INFINITE);
+                    }
                 } else {
                     Serial.printf("[ScriptEngine] Warning: Failed to load '%s'. Skipping step.\n", fullPath.c_str());
                     advanceStep(engine);
