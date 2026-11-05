@@ -100,7 +100,14 @@
         <li>Close any serial monitors or other programs using the COM port.</li>
       </ul>
     </div>
-    <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
+    <esp-web-install-button id="installerBtn" manifest="manifest.json?v=1.3.0"></esp-web-install-button>
+    <script>
+      // Prevent browser from caching old manifest versions
+      const btn = document.getElementById('installerBtn');
+      if (btn) {
+        btn.setAttribute('manifest', 'manifest.json?t=' + Date.now());
+      }
+    </script>
     <div><a href="index.html" class="back-link">&larr; Return to Studio</a></div>
   </div>
 </body>
