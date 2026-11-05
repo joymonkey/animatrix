@@ -1,0 +1,15 @@
+{
+  "$schema": "animatrix-v2",
+  "name": "audio_beat_ripple",
+  "author": "Antigravity",
+  "matrix": {
+    "width": 16,
+    "height": 9,
+    "color": "red"
+  },
+  "requires_mic": true,
+  "generator": {
+    "type": "beat_ripple",
+    "origin": "center_vertical"
+  }
+}

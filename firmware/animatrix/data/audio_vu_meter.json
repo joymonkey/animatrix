@@ -1,0 +1,15 @@
+{
+  "$schema": "animatrix-v2",
+  "name": "audio_vu_meter",
+  "author": "Antigravity",
+  "matrix": {
+    "width": 40,
+    "height": 3,
+    "color": "cyan"
+  },
+  "requires_mic": true,
+  "generator": {
+    "type": "vu_meter",
+    "origin": "center_horizontal"
+  }
+}

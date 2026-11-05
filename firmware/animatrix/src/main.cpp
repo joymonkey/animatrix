@@ -15,10 +15,16 @@
 #include "animation_engine.h"
 #include "script_engine.h"
 #include "heartbeat.h"
+#include "audio_processor.h"
+#include "embedded_files.h"
 
 // ==============================================================================
 // Shared Global State & Queues
 // ==============================================================================
+uint8_t globalMaxBrightness = DEFAULT_MAX_BRIGHTNESS;
+CustomMatrix16x9 matrixAdafruit16x9;
+CustomMatrix40x3   matrixCustom40x3;
+Adafruit_IS31FL3731* displayMatrix = &matrixCustom40x3;
 const byte DNS_PORT = 53;
 DNSServer dnsServer;
 AsyncWebServer server(80);
@@ -73,7 +79,14 @@ void animationTask(void *pvParameters) {
     Preferences prefs;
     prefs.begin("animatrix", true);
     String savedMatrix = prefs.getString("matrix_type", "custom_40x3");
-    String savedStartup = prefs.getString("startup_mode", "playlist");
+    String defaultStartup = (savedMatrix == "custom_40x3" || savedMatrix == "custom_3x40") ? "cylon_fade_up_40x3.json" : "startup_16x9.json";
+    String savedStartup = prefs.getString("startup_mode", defaultStartup.c_str());
+    if (savedStartup == "playlist" || savedStartup == "startup_40x3.json" || savedStartup == "/startup_40x3.json") {
+        savedStartup = defaultStartup;
+    }
+    uint8_t savedBright = prefs.getUChar("max_bright", DEFAULT_MAX_BRIGHTNESS);
+    if (savedBright < MIN_MAX_BRIGHTNESS) savedBright = DEFAULT_MAX_BRIGHTNESS;
+    setGlobalMaxBrightness(savedBright);
     prefs.end();
     if (savedMatrix == "custom_3x40") savedMatrix = "custom_40x3";
 
@@ -115,7 +128,7 @@ void animationTask(void *pvParameters) {
         displayMatrix->fillScreen(255);
     } else {
         String startupScript = "";
-        String matrixScript = (savedMatrix == "custom_40x3" || savedMatrix == "custom_3x40") ? "/startup_40x3.json" : "/startup_16x9.json";
+        String matrixScript = (savedMatrix == "custom_40x3" || savedMatrix == "custom_3x40") ? "/cylon_fade_up_40x3.json" : "/startup_16x9.json";
         
         String customScript = savedStartup;
         if (!customScript.startsWith("/")) customScript = "/" + customScript;
@@ -139,6 +152,8 @@ void animationTask(void *pvParameters) {
 
     AnimationTrigger trigger;
     uint32_t lastStatusUpdate = 0;
+    bool brightnessBarActive = false;
+    uint32_t brightnessBarTimeout = 0;
 
     while (1) {
         // Check for incoming trigger without blocking animation timing
@@ -160,6 +175,61 @@ void animationTask(void *pvParameters) {
                     engine.stop();
                     displayMatrix->clear();
                     break;
+
+                case TRIGGER_BRIGHTNESS_CYCLE: {
+                    engine.stop();
+                    if (scriptEngine.isActive()) {
+                        scriptEngine.stop();
+                    }
+
+                    // Increment in 5% steps: 10% -> 15% -> ... -> 100% -> 10%
+                    int pct = (int)roundf((getGlobalMaxBrightness() * 100.0f) / 255.0f);
+                    pct = ((pct + 2) / 5) * 5;
+                    pct += 5;
+                    if (pct > 100 || pct < 10) {
+                        pct = 10;
+                    }
+
+                    uint8_t newBrightness = (uint8_t)roundf((pct * 255.0f) / 100.0f);
+                    setGlobalMaxBrightness(newBrightness);
+
+                    // Persist to NVS flash
+                    Preferences p;
+                    p.begin("animatrix", false);
+                    p.putUChar("max_bright", newBrightness);
+                    p.end();
+
+                    Serial.printf("[Button] Cycled max brightness: %d%% (%d/255)\n", pct, newBrightness);
+
+                    // Visual feedback:
+                    // Rows 0 to H-2 lit across full display at new brightness level
+                    // Bottom row (H-1) displays the exact progress bar meter (pct% of width)
+                    displayMatrix->clear();
+                    int w = displayMatrix->width();
+                    int h = displayMatrix->height();
+                    int activeCols = (pct * w + 50) / 100;
+                    if (activeCols < 1 && pct > 0) activeCols = 1;
+
+                    for (int x = 0; x < w; x++) {
+                        for (int y = 0; y < h - 1; y++) {
+                            displayMatrix->drawPixel(x, y, 255);
+                        }
+                    }
+                    for (int x = 0; x < activeCols && x < w; x++) {
+                        displayMatrix->drawPixel(x, h - 1, 255);
+                    }
+
+                    brightnessBarActive = true;
+                    brightnessBarTimeout = millis() + 1500; // Hold progress bar for 1.5 seconds
+
+                    if (xSemaphoreTake(statusMutex, 0) == pdTRUE) {
+                        systemStatus.isPlaying = false;
+                        systemStatus.isLoaded = false;
+                        strncpy(systemStatus.animName, "BRIGHTNESS", sizeof(systemStatus.animName) - 1);
+                        xSemaphoreGive(statusMutex);
+                    }
+                    break;
+                }
 
                 case TRIGGER_TEST_SWIPE: {
                     bool wasLoaded = engine.isLoaded();
@@ -251,10 +321,16 @@ void animationTask(void *pvParameters) {
             }
         }
 
+        // If brightness progress bar timeout elapsed, fill bottom row for uniform all-on display
+        if (brightnessBarActive && millis() > brightnessBarTimeout) {
+            brightnessBarActive = false;
+            displayMatrix->fillScreen(255);
+        }
+
         // Advance script choreography if active, otherwise advance standalone animation
         if (scriptEngine.isActive()) {
             scriptEngine.update(engine);
-        } else {
+        } else if (!brightnessBarActive) {
             engine.update();
         }
 
@@ -286,7 +362,7 @@ void IRAM_ATTR bootButtonISR() {
     static uint32_t lastIsrTime = 0;
     uint32_t currentTime = millis();
     if (currentTime - lastIsrTime > 250) { // 250ms debounce
-        AnimationTrigger t = {TRIGGER_TEST_SWIPE, ""};
+        AnimationTrigger t = {TRIGGER_BRIGHTNESS_CYCLE, ""};
         xQueueSendFromISR(animationQueue, &t, NULL);
         lastWifiActivity = currentTime;
         lastIsrTime = currentTime;
@@ -330,6 +406,11 @@ static bool extractAnimationMeta(File& file, const String& filename, uint16_t& w
         return false;
     }
 
+    // Filter out mic visualizers if no microphone was detected on startup
+    if (!micDetected && (strstr(buf, "\"requires_mic\": true") != NULL || strstr(buf, "\"generator\"") != NULL)) {
+        return false;
+    }
+
     // Find "name": "..."
     const char* pName = strstr(buf, "\"name\"");
     if (pName) {
@@ -369,14 +450,55 @@ static bool extractAnimationMeta(File& file, const String& filename, uint16_t& w
     return true;
 }
 
+// ==============================================================================
+// Embedded Filesystem Self-Provisioning
+// ==============================================================================
+static void provisionLittleFS() {
+    Preferences prefs;
+    prefs.begin("animatrix", false);
+    String lastHash = prefs.getString("fs_hash", "");
+    String lastVer = prefs.getString("fs_version", "");
+    bool forceUpdate = (lastHash != EMBEDDED_FS_HASH || lastVer != FIRMWARE_VERSION);
+
+    if (forceUpdate) {
+        Serial.printf("[LittleFS] Payload change detected (prev hash: '%s', new: '%s'). Updating files...\n",
+                      lastHash.c_str(), EMBEDDED_FS_HASH);
+    } else {
+        Serial.printf("[LittleFS] Payload matches (%s). Checking for missing files...\n", EMBEDDED_FS_HASH);
+    }
+
+    size_t writtenCount = 0;
+    for (size_t i = 0; i < NUM_EMBEDDED_FILES; i++) {
+        const EmbeddedFile& ef = EMBEDDED_FILES[i];
+        bool shouldWrite = forceUpdate || !LittleFS.exists(ef.path);
+        if (shouldWrite) {
+            File f = LittleFS.open(ef.path, "w");
+            if (f) {
+                f.write(ef.data, ef.size);
+                f.close();
+                writtenCount++;
+            } else {
+                Serial.printf("[LittleFS] Warning: Failed to write %s\n", ef.path);
+            }
+        }
+    }
+
+    if (writtenCount > 0) {
+        Serial.printf("[LittleFS] Provisioned %u / %u files successfully.\n", (unsigned)writtenCount, (unsigned)NUM_EMBEDDED_FILES);
+        prefs.putString("fs_hash", EMBEDDED_FS_HASH);
+        prefs.putString("fs_version", FIRMWARE_VERSION);
+    } else {
+        Serial.println("[LittleFS] All embedded files already present and up to date.");
+    }
+    prefs.end();
+}
+
 void setupNetworkAndIO() {
     Serial.println("[Core 0] Network & IO Task Starting...");
 
-    // Mount LittleFS
+    // Verify LittleFS is mounted
     if (!LittleFS.begin(true)) {
         Serial.println("[Core 0] ERROR: LittleFS Mount Failed");
-    } else {
-        Serial.println("[Core 0] LittleFS mounted successfully.");
     }
 
     // Configure BOOT button
@@ -407,6 +529,9 @@ void setupNetworkAndIO() {
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type, X-Animation-Name, Authorization");
+    DefaultHeaders::Instance().addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    DefaultHeaders::Instance().addHeader("Pragma", "no-cache");
+    DefaultHeaders::Instance().addHeader("Expires", "0");
 
     // --------------------------------------------------------------------------
     // Captive Portal Detection Routes (iOS, Android, Windows)
@@ -485,6 +610,9 @@ void setupNetworkAndIO() {
         sys["free_psram"] = ESP.getFreePsram();
         sys["uptime_sec"] = millis() / 1000;
         sys["version"] = FIRMWARE_VERSION;
+        sys["startup_mode"] = systemStatus.startupMode;
+        sys["max_brightness"] = getGlobalMaxBrightness();
+        sys["mic_detected"] = micDetected;
 
         JsonObject wifi = doc["wifi"].to<JsonObject>();
         wifi["ssid"] = currentApSsid;
@@ -493,6 +621,43 @@ void setupNetworkAndIO() {
         String response;
         serializeJson(doc, response);
         request->send(200, "application/json", response);
+    });
+
+    // --------------------------------------------------------------------------
+    // --------------------------------------------------------------------------
+    // REST API: POST /api/brightness (Set maximum global display brightness 10-255)
+    // --------------------------------------------------------------------------
+    server.on("/api/brightness", HTTP_POST, [](AsyncWebServerRequest *request) {
+        lastWifiActivity = millis();
+        int val = DEFAULT_MAX_BRIGHTNESS;
+        if (request->hasParam("val", true)) val = request->getParam("val", true)->value().toInt();
+        else if (request->hasParam("val")) val = request->getParam("val")->value().toInt();
+
+        bool persist = true;
+        if (request->hasParam("persist", true)) {
+            persist = (request->getParam("persist", true)->value() == "1");
+        } else if (request->hasParam("persist")) {
+            persist = (request->getParam("persist")->value() == "1");
+        }
+
+        if (val < MIN_MAX_BRIGHTNESS) val = MIN_MAX_BRIGHTNESS;
+        if (val > 255) val = 255;
+
+        setGlobalMaxBrightness((uint8_t)val);
+
+        if (persist) {
+            Preferences p;
+            p.begin("animatrix", false);
+            p.putUChar("max_bright", (uint8_t)val);
+            p.end();
+            Serial.printf("[Power] Persisted maximum display brightness: %d (%d%%)\n", val, (val * 100) / 255);
+        }
+
+        // Light up all LEDs immediately at this brightness level
+        AnimationTrigger t = {TRIGGER_ALL_ON, ""};
+        xQueueSend(animationQueue, &t, 0);
+
+        request->send(200, "application/json", "{\"status\":\"ok\",\"max_brightness\":" + String(val) + "}");
     });
 
     // --------------------------------------------------------------------------
@@ -671,6 +836,10 @@ void setupNetworkAndIO() {
                 String name = file.name();
                 if (name.startsWith("/")) name = name.substring(1);
                 if (name.endsWith(".json")) {
+                    if (!micDetected && (name.startsWith("audio_") || name.indexOf("mictest") >= 0)) {
+                        file = root.openNextFile();
+                        continue;
+                    }
                     uint16_t w = 0, h = 0;
                     String title = name;
                     if (extractAnimationMeta(file, name, w, h, title)) {
@@ -943,12 +1112,36 @@ void setup() {
     Serial.println("  ANIMATRIX // ESP32-S3 LED MATRIX FIRMWARE  ");
     Serial.println("=============================================");
 
+    // Initialize LittleFS & synchronize embedded assets before tasks launch
+    if (!LittleFS.begin(true)) {
+        Serial.println("[Setup] ERROR: LittleFS Mount Failed");
+    } else {
+        Serial.println("[Setup] LittleFS mounted successfully.");
+        provisionLittleFS();
+    }
+
     // Initialize synchronization primitives
     animationQueue = xQueueCreate(10, sizeof(AnimationTrigger));
     statusMutex = xSemaphoreCreateMutex();
 
     // Initialize onboard NeoPixel heartbeat indicator (GPIO21)
     HeartbeatIndicator::init();
+
+    // Initialize I2S Audio Hardware & auto-detect microphone
+    if (initI2S()) {
+        // Spawn Audio Processing Task (Core 0) only if microphone is connected
+        xTaskCreatePinnedToCore(
+            audioTask,
+            "AudioTask",
+            4096,
+            NULL,
+            2,              // Higher priority for audio DSP to prevent dropping DMA samples
+            NULL,
+            0               // Core 0
+        );
+    } else {
+        Serial.println("[Audio] Audio processing task skipped (no I2S microphone detected).");
+    }
 
     // Spawn Core 1 Task (Matrix Rendering & Animation Engine)
     xTaskCreatePinnedToCore(

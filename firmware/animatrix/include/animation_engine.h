@@ -6,6 +6,7 @@
 #include <ArduinoJson.h>
 #include "matrix_driver.h"
 #include "messages.h"
+#include "audio_visualizers.h"
 
 // ==============================================================================
 // Hex Conversion Helpers
@@ -60,10 +61,13 @@ public:
         _blendMode(BLEND_NONE),
         _blendProgress(0.0f),
         _blendBufferWidth(0),
-        _blendBufferHeight(0)
+        _blendBufferHeight(0),
+        _isGenerator(false)
     {
         strncpy(_animName, "none", sizeof(_animName) - 1);
         strncpy(_activeFilename, "", sizeof(_activeFilename) - 1);
+        strncpy(_genType, "", sizeof(_genType) - 1);
+        strncpy(_genOrigin, "", sizeof(_genOrigin) - 1);
         memset(_lastRenderedBuffer, 0, sizeof(_lastRenderedBuffer));
         memset(_blendFromBuffer, 0, sizeof(_blendFromBuffer));
     }
@@ -115,9 +119,31 @@ public:
             _loopMode = LOOP_INFINITE;
         }
 
+        JsonObject genObj = _doc["generator"];
+        if (!genObj.isNull()) {
+            _isGenerator = true;
+            strncpy(_genType, genObj["type"] | "vu_meter", sizeof(_genType) - 1);
+            strncpy(_genOrigin, genObj["origin"] | "center_horizontal", sizeof(_genOrigin) - 1);
+            
+            _totalFrames = 1;
+            _currentFrame = 0;
+            _isLoaded = true;
+            _isPlaying = true;
+            _lastFrameTime = 0;
+            _cycleCount = 0;
+            _brightnessMultiplier = 1.0f;
+            Serial.printf("[AnimEngine] Loaded Generator '%s' (Type: %s, Origin: %s)\n", _animName, _genType, _genOrigin);
+            if (renderFirstFrame) {
+                renderCurrentFrame();
+            }
+            return true;
+        } else {
+            _isGenerator = false;
+        }
+
         JsonArray frames = _doc["frames"].as<JsonArray>();
         if (frames.isNull() || frames.size() == 0) {
-            Serial.println("[AnimEngine] Error: No frames array found in JSON.");
+            Serial.println("[AnimEngine] Error: No frames array or generator found in JSON.");
             _isLoaded = false;
             _isPlaying = false;
             return false;
@@ -145,6 +171,7 @@ public:
     void reset() {
         _isLoaded = false;
         _isPlaying = false;
+        _isGenerator = false;
         _totalFrames = 0;
         _currentFrame = 0;
         _cycleCount = 0;
@@ -154,7 +181,12 @@ public:
     }
 
     void renderCurrentFrame() {
-        if (!_isLoaded || _totalFrames == 0) return;
+        if (!_isLoaded || (_totalFrames == 0 && !_isGenerator)) return;
+
+        if (_isGenerator) {
+            renderAudioVisualizer(_genType, _genOrigin, _animWidth, _animHeight, _lastRenderedBuffer);
+            return;
+        }
 
         JsonArray frames = _doc["frames"].as<JsonArray>();
         const char* hexStr = frames[_currentFrame] | "";
@@ -201,7 +233,14 @@ public:
     }
 
     void stepNextFrame(bool render = true) {
-        if (!_isLoaded || _totalFrames <= 1) return;
+        if (!_isLoaded) return;
+        
+        if (_isGenerator) {
+            if (render) renderCurrentFrame();
+            return;
+        }
+
+        if (_totalFrames <= 1) return;
 
         bool cycleEnded = false;
         if (_loopMode == LOOP_INFINITE) {
@@ -255,7 +294,9 @@ public:
     }
 
     uint32_t getFramesRemainingInCycle() const {
-        if (!_isLoaded || _totalFrames <= 1) return 0;
+        if (!_isLoaded) return 0;
+        if (_isGenerator) return 0; // Infinite procedural
+        if (_totalFrames <= 1) return 0;
         if (_loopMode == LOOP_INFINITE || _loopMode == LOOP_ONCE) {
             return (_totalFrames > _currentFrame + 1) ? ((_totalFrames - 1) - _currentFrame) : 0;
         } else if (_loopMode == LOOP_PING_PONG) {
@@ -271,7 +312,19 @@ public:
     }
 
     bool getFramePixels(uint8_t* dest, size_t maxLen) const {
-        if (!_isLoaded || _totalFrames == 0 || !dest) return false;
+        if (!_isLoaded || !dest) return false;
+        
+        if (_isGenerator) {
+            size_t numPixels = _animWidth * _animHeight;
+            if (numPixels > maxLen) numPixels = maxLen;
+            for (size_t i = 0; i < numPixels; i++) {
+                dest[i] = (i < MAX_MATRIX_LEDS) ? _lastRenderedBuffer[i] : 0;
+            }
+            return true;
+        }
+
+        if (_totalFrames == 0) return false;
+        
         JsonArrayConst frames = _doc["frames"].as<JsonArrayConst>();
         const char* hexStr = frames[_currentFrame] | "";
         size_t expectedLen = _animWidth * _animHeight * 2;
@@ -305,6 +358,7 @@ public:
         std::swap(_blendProgress, other._blendProgress);
         std::swap(_blendBufferWidth, other._blendBufferWidth);
         std::swap(_blendBufferHeight, other._blendBufferHeight);
+        std::swap(_isGenerator, other._isGenerator);
 
         char tmp[48];
         memcpy(tmp, _animName, sizeof(tmp));
@@ -314,6 +368,15 @@ public:
         memcpy(tmp, _activeFilename, sizeof(tmp));
         memcpy(_activeFilename, other._activeFilename, sizeof(tmp));
         memcpy(other._activeFilename, tmp, sizeof(tmp));
+
+        char tmpGen[32];
+        memcpy(tmpGen, _genType, sizeof(tmpGen));
+        memcpy(_genType, other._genType, sizeof(tmpGen));
+        memcpy(other._genType, tmpGen, sizeof(tmpGen));
+
+        memcpy(tmpGen, _genOrigin, sizeof(tmpGen));
+        memcpy(_genOrigin, other._genOrigin, sizeof(tmpGen));
+        memcpy(other._genOrigin, tmpGen, sizeof(tmpGen));
 
         uint8_t bufTmp[MAX_MATRIX_LEDS];
         memcpy(bufTmp, _lastRenderedBuffer, sizeof(bufTmp));
@@ -354,6 +417,7 @@ public:
     uint32_t getCurrentFrame() const { return _currentFrame; }
     uint16_t getAnimWidth() const { return _animWidth; }
     uint16_t getAnimHeight() const { return _animHeight; }
+    bool isGenerator() const { return _isGenerator; }
     const char* getLoopModeStr() const {
         if (_loopMode == LOOP_ONCE) return "once";
         if (_loopMode == LOOP_PING_PONG) return "ping_pong";
@@ -416,6 +480,9 @@ private:
     uint16_t _blendBufferHeight;
     uint8_t _lastRenderedBuffer[MAX_MATRIX_LEDS];
     uint8_t _blendFromBuffer[MAX_MATRIX_LEDS];
+    bool _isGenerator;
+    char _genType[32];
+    char _genOrigin[32];
 };
 
 #endif // ANIMATION_ENGINE_H

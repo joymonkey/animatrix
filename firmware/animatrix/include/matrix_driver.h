@@ -68,6 +68,30 @@ const uint8_t matrix_lut_40x3[3][40] = {
 };
 #define matrix_lut_3x40 matrix_lut_40x3
 
+#define MIN_MAX_BRIGHTNESS     26   // ~10% minimum
+#define DEFAULT_MAX_BRIGHTNESS 179  // ~70% default (179 / 255 = 70.2%)
+
+extern uint8_t globalMaxBrightness;
+inline void setGlobalMaxBrightness(uint8_t b) {
+  if (b < MIN_MAX_BRIGHTNESS) b = MIN_MAX_BRIGHTNESS;
+  if (b > 255) b = 255;
+  globalMaxBrightness = b;
+}
+inline uint8_t getGlobalMaxBrightness() {
+  return globalMaxBrightness;
+}
+
+class CustomMatrix16x9 : public Adafruit_IS31FL3731 {
+ public:
+  CustomMatrix16x9() : Adafruit_IS31FL3731(16, 9) {}
+
+  void drawPixel(int16_t x, int16_t y, uint16_t color) override {
+    uint8_t clamped = (uint8_t)min((uint16_t)255, color);
+    uint8_t scaled = (uint8_t)(((uint16_t)clamped * globalMaxBrightness) / 255);
+    Adafruit_IS31FL3731::drawPixel(x, y, scaled);
+  }
+};
+
 class CustomMatrix40x3 : public Adafruit_IS31FL3731 {
  public:
   CustomMatrix40x3() : Adafruit_IS31FL3731(40, 3) {}
@@ -75,7 +99,9 @@ class CustomMatrix40x3 : public Adafruit_IS31FL3731 {
   void drawPixel(int16_t x, int16_t y, uint16_t color) override {
     if ((x < 0) || (x >= 40) || (y < 0) || (y >= 3)) return;
     uint8_t led_id = matrix_lut_40x3[y][x];
-    setLEDPWM(led_id, (uint8_t)min((uint16_t)255, color), _frame);
+    uint8_t clamped = (uint8_t)min((uint16_t)255, color);
+    uint8_t scaled = (uint8_t)(((uint16_t)clamped * globalMaxBrightness) / 255);
+    setLEDPWM(led_id, scaled, _frame);
   }
 };
 typedef CustomMatrix40x3 CustomMatrix3x40;
@@ -84,13 +110,13 @@ typedef CustomMatrix40x3 CustomMatrix3x40;
 // Matrix Driver Instance & Hardware Init
 // ==============================================================================
 
-// Static instances for selectable matrix hardware targets
-static Adafruit_IS31FL3731 matrixAdafruit16x9(16, 9);
-static CustomMatrix40x3   matrixCustom40x3;
+// External instances defined in main.cpp
+extern CustomMatrix16x9 matrixAdafruit16x9;
+extern CustomMatrix40x3   matrixCustom40x3;
 #define matrixCustom3x40  matrixCustom40x3
 
 // Global pointer used by animation engine and main logic
-static Adafruit_IS31FL3731* displayMatrix = &matrixAdafruit16x9;
+extern Adafruit_IS31FL3731* displayMatrix;
 
 inline bool setMatrixType(const char* type) {
   if (strcmp(type, "custom_40x3") == 0 || strcmp(type, "custom_3x40") == 0) {

@@ -1,0 +1,15 @@
+{
+  "$schema": "animatrix-v2",
+  "name": "audio_waveform",
+  "author": "Antigravity",
+  "matrix": {
+    "width": 40,
+    "height": 3,
+    "color": "white"
+  },
+  "requires_mic": true,
+  "generator": {
+    "type": "waveform",
+    "origin": "left_to_right"
+  }
+}

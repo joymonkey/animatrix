@@ -1,3 +1,4 @@
+let lastStatusData = null;
 
 // ==============================================================================
 // Captive Portal Detection
@@ -101,6 +102,7 @@ async function fetchStatus() {
         const resp = await fetch('/api/status');
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
+        lastStatusData = data;
 
         // Connection
         connPill.classList.add('connected');
@@ -156,6 +158,29 @@ async function fetchStatus() {
         // System
         if (data.system) {
             freeHeap.textContent = `${Math.round((data.system.free_heap || 0) / 1024)} KB`;
+            if (typeof data.system.max_brightness !== "undefined") {
+                const slider = document.getElementById("brightnessSlider");
+                const label = document.getElementById("brightnessValueLabel");
+                if (slider && document.activeElement !== slider) {
+                    slider.value = data.system.max_brightness;
+                    const pct = Math.round((data.system.max_brightness / 255) * 100);
+                    if (label) label.textContent = `${pct}% (${data.system.max_brightness}/255)`;
+                }
+            }
+            const versionTag = document.getElementById("firmwareVersionTag");
+            if (versionTag && data.system.version) {
+                versionTag.textContent = `ANIMATRIX FIRMWARE ${data.system.version} // ESP32-S3`;
+            }
+            if (data.system.startup_mode) {
+                const startupSelect = document.getElementById("startupSelect");
+                if (startupSelect && document.activeElement !== startupSelect) {
+                    const cleanMode = data.system.startup_mode.replace(/^\//, "");
+                    const optExists = Array.from(startupSelect.options).some(o => o.value === cleanMode);
+                    if (optExists && startupSelect.value !== cleanMode) {
+                        startupSelect.value = cleanMode;
+                    }
+                }
+            }
         }
 
         // Animation Telemetry
@@ -940,6 +965,11 @@ async function fetchPlaylists() {
             const exists = Array.from(startupSelect.options).some(opt => opt.value === currentValue);
             if (exists) {
                 startupSelect.value = currentValue;
+            } else if (lastStatusData && lastStatusData.system && lastStatusData.system.startup_mode) {
+                const target = lastStatusData.system.startup_mode.replace(/^\//, "");
+                if (Array.from(startupSelect.options).some(opt => opt.value === target)) {
+                    startupSelect.value = target;
+                }
             }
         }
     } catch (err) {
@@ -979,5 +1009,53 @@ async function previewStartupMode() {
         }
     } catch (err) {
         setStatus(`Error previewing startup mode: ${err.message}`, true);
+    }
+}
+
+// ==============================================================================
+// Global Max Brightness Control
+// ==============================================================================
+let brightnessThrottleTimer = null;
+
+function onBrightnessSliderInput(val) {
+    const label = document.getElementById("brightnessValueLabel");
+    const pct = Math.round((val / 255) * 100);
+    if (label) label.textContent = `${pct}% (${val}/255)`;
+
+    // Live preview on display while dragging (throttled to 60ms)
+    if (!brightnessThrottleTimer) {
+        brightnessThrottleTimer = setTimeout(() => {
+            brightnessThrottleTimer = null;
+            sendBrightnessUpdate(val, false);
+        }, 60);
+    }
+}
+
+async function onBrightnessSliderChange(val) {
+    if (brightnessThrottleTimer) {
+        clearTimeout(brightnessThrottleTimer);
+        brightnessThrottleTimer = null;
+    }
+    await sendBrightnessUpdate(val, true);
+}
+
+async function sendBrightnessUpdate(val, persist) {
+    try {
+        const formData = new FormData();
+        formData.append("val", val);
+        if (persist) formData.append("persist", "1");
+        const resp = await fetch("/api/brightness", {
+            method: "POST",
+            body: formData
+        });
+        if (resp.ok && persist) {
+            const indicator = document.getElementById("brightnessIndicator");
+            if (indicator) {
+                indicator.textContent = "SAVED";
+                setTimeout(() => { indicator.textContent = "PERSISTED"; }, 2000);
+            }
+        }
+    } catch (err) {
+        console.error("Failed to update brightness:", err);
     }
 }

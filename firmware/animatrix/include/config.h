@@ -6,7 +6,9 @@
 // ==============================================================================
 // 1. Firmware & Hardware Selection
 // ==============================================================================
-#define FIRMWARE_VERSION          "1.0.0"
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION          "1.3.0"
+#endif
 
 #define MATRIX_TYPE_ADAFRUIT_16X9 1  // Adafruit 16x9 Charlieplexed Matrix (#2947)
 #define MATRIX_TYPE_CUSTOM_40X3   2  // Custom 40x3 Daft Punk Visor Flex Matrix

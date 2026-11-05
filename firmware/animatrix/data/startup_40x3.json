@@ -9,22 +9,16 @@
   "steps": [
     {
       "action": "play",
-      "file": "cylon_40x3.json",
-      "repeat": 3,
-      "hold_last_frame_ms": 0,
+      "file": "baked_cylon_fade_40x3.json",
+      "repeat": 1,
       "transition": {
         "type": "cut",
         "duration_ms": 0
       }
     },
     {
-      "action": "play",
-      "file": "visor_breathe_40x3.json",
-      "repeat": 0,
-      "transition": {
-        "type": "additive",
-        "lead_frames": 6
-      }
+      "action": "all_on",
+      "brightness": 255
     }
   ]
 }

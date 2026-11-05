@@ -235,6 +235,22 @@
             </div>
         </section>
 
+        <!-- Display Brightness Ceiling Limit -->
+        <section class="panel brightness-panel" id="brightnessSection">
+            <div class="panel-header">
+                <h2>MAX DISPLAY BRIGHTNESS</h2>
+                <span class="save-indicator" id="brightnessIndicator">PERSISTED</span>
+            </div>
+            <div class="hardware-select-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px;">
+                    <span>OUTPUT CEILING:</span>
+                    <span id="brightnessValueLabel" style="color: var(--accent-cyan); font-weight: bold;">70% (179/255)</span>
+                </div>
+                <input type="range" id="brightnessSlider" min="26" max="255" value="179" class="cyber-slider" oninput="onBrightnessSliderInput(this.value)" onchange="onBrightnessSliderChange(this.value)">
+            </div>
+            <p class="panel-desc">Limits overall driver current to prevent the IS31FL3731 driver chip from overheating during full matrix illumination. Saved to NVS.</p>
+        </section>
+
         <!-- Matrix Hardware Target Selection -->
         <section class="panel hardware-panel" id="hardwareSection">
             <div class="panel-header">
@@ -291,7 +307,7 @@
                 <h2>FIRMWARE UPDATE (OTA)</h2>
             </div>
             <div class="hardware-select-row" style="flex-direction: column; align-items: flex-start; gap: 12px;">
-                <p class="panel-desc" style="margin-top:0;">Upload a pre-compiled <code>firmware.bin</code> or <code>littlefs.bin</code> over Wi-Fi. This safely preserves all your NVS settings and animations.</p>
+                <p class="panel-desc" style="margin-top:0;">Upload a pre-compiled <code>firmware.bin</code> over Wi-Fi. System files, web UI, and presets update automatically on reboot while preserving all your custom animations.</p>
                 <label class="drop-zone" id="otaDropZone" for="otaFileInput" style="width: 100%; border: 1px dashed var(--accent-cyan); background: rgba(0, 240, 255, 0.05); padding: 24px 16px; text-align: center; cursor: pointer; border-radius: 6px; display: flex; flex-direction: column; align-items: center; gap: 12px;">
                     <div class="btn btn-accent" style="pointer-events: none; width: 100%; max-width: 250px; font-size: 13px; padding: 12px;">SELECT FIRMWARE (.bin)</div>
                     <p style="color: var(--text-primary); font-family: var(--font-mono); font-size: 10px; margin: 0; opacity: 0.7;">(Tap to browse phone files, or drag & drop on PC)</p>
@@ -304,7 +320,7 @@
 
         <!-- Footer -->
         <footer class="hud-footer">
-            <span>ANIMATRIX FIRMWARE v1.2.0 // ESP32-S3</span>
+            <span id="firmwareVersionTag">ANIMATRIX FIRMWARE // ESP32-S3</span>
             <span>LED MATRIX CONTROL SYSTEM</span>
         </footer>
     </div>
