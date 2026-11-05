@@ -79,9 +79,9 @@ void animationTask(void *pvParameters) {
     Preferences prefs;
     prefs.begin("animatrix", true);
     String savedMatrix = prefs.getString("matrix_type", "custom_40x3");
-    String defaultStartup = (savedMatrix == "custom_40x3" || savedMatrix == "custom_3x40") ? "cylon_fade_up_40x3.json" : "startup_16x9.json";
+    String defaultStartup = (savedMatrix == "custom_40x3" || savedMatrix == "custom_3x40") ? "startup_40x3.json" : "startup_16x9.json";
     String savedStartup = prefs.getString("startup_mode", defaultStartup.c_str());
-    if (savedStartup == "playlist" || savedStartup == "startup_40x3.json" || savedStartup == "/startup_40x3.json") {
+    if (savedStartup == "playlist" || savedStartup == "cylon_fade_up_40x3.json" || savedStartup == "/cylon_fade_up_40x3.json" || savedStartup == "startup_40x3.json" || savedStartup == "/startup_40x3.json") {
         savedStartup = defaultStartup;
     }
     uint8_t savedBright = prefs.getUChar("max_bright", DEFAULT_MAX_BRIGHTNESS);
@@ -128,7 +128,7 @@ void animationTask(void *pvParameters) {
         displayMatrix->fillScreen(255);
     } else {
         String startupScript = "";
-        String matrixScript = (savedMatrix == "custom_40x3" || savedMatrix == "custom_3x40") ? "/cylon_fade_up_40x3.json" : "/startup_16x9.json";
+        String matrixScript = (savedMatrix == "custom_40x3" || savedMatrix == "custom_3x40") ? "/startup_40x3.json" : "/startup_16x9.json";
         
         String customScript = savedStartup;
         if (!customScript.startsWith("/")) customScript = "/" + customScript;

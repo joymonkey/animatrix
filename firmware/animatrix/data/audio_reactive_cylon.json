@@ -1,0 +1,16 @@
+{
+  "$schema": "animatrix-v2",
+  "name": "audio_reactive_cylon",
+  "author": "Antigravity",
+  "matrix": {
+    "width": 40,
+    "height": 3,
+    "color": "red"
+  },
+  "requires_mic": true,
+  "generator": {
+    "type": "reactive_cylon",
+    "origin": "center_horizontal"
+  }
+}
+

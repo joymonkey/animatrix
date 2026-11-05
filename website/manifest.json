@@ -1,14 +1,23 @@
 {
   "name": "Animatrix Firmware",
-  "version": "v1.3.0",
+  "version": "v1.3.0-8d10aac-dirty",
   "home_assistant_domain": "animatrix",
   "builds": [
     {
       "chipFamily": "ESP32-S3",
       "parts": [
-        { "path": "firmware/bootloader.bin", "offset": 0 },
-        { "path": "firmware/partitions.bin", "offset": 32768 },
-        { "path": "firmware/firmware.bin", "offset": 65536 }
+        {
+          "path": "firmware/bootloader.bin",
+          "offset": 0
+        },
+        {
+          "path": "firmware/partitions.bin",
+          "offset": 32768
+        },
+        {
+          "path": "firmware/firmware.bin",
+          "offset": 65536
+        }
       ]
     }
   ]

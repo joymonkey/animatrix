@@ -1,0 +1,16 @@
+{
+  "$schema": "animatrix-v2",
+  "name": "audio_vad_breath",
+  "author": "Antigravity",
+  "matrix": {
+    "width": 40,
+    "height": 3,
+    "color": "cyan"
+  },
+  "requires_mic": true,
+  "generator": {
+    "type": "vad_breath",
+    "origin": "center_horizontal"
+  }
+}
+
