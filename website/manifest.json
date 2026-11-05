@@ -1,6 +1,6 @@
 {
   "name": "Animatrix Firmware",
-  "version": "v1.3.0-8d10aac-dirty",
+  "version": "v1.3.0-fce9117-dirty",
   "home_assistant_domain": "animatrix",
   "builds": [
     {
